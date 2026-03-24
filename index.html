@@ -195,6 +195,11 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
       <span class="ctx-ex" onclick="fillExample(this)">Data extraction</span>
       <span class="ctx-ex" onclick="fillExample(this)">Agentic workflow</span>
     </div>
+    <div class="api-key-row" id="apiKeyRow">
+      <input type="password" id="apiKeyInput" class="ctx-area" style="min-height:unset;padding:6px 10px;font-size:.75rem;letter-spacing:.05em" placeholder="Anthropic API key (sk-ant-...) — optional, enables AI-powered estimation">
+      <button class="est-btn" style="margin-top:5px;padding:6px 12px;font-size:.72rem;background:rgba(108,99,255,.15);color:var(--ac2);border:1px solid var(--ac2)" onclick="saveApiKey()">Save key</button>
+    </div>
+    <div id="apiKeyStatus" style="font-size:.68rem;color:var(--mu);margin-top:3px;margin-bottom:6px"></div>
     <button class="est-btn" onclick="estimateFromContext()">✨ Estimate from description</button>
     <div class="infer-wrap" id="inferWrap">
       <div class="infer-tags" id="inferTags"></div>
@@ -209,6 +214,10 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
     <span class="ico" style="background:rgba(108,99,255,.18)">🤖</span>
     <h2 data-tip="LLM API costs based on token volume. Priced per million tokens (MTok). Input = prompt, Output = response.">AI Model Usage</h2>
     <span class="card-cost zero" id="sec-model">—</span>
+    <label class="toggle" onclick="event.stopPropagation()" data-tip="Include AI Model costs in total">
+      <input type="checkbox" id="include_model" checked onchange="calculate()">
+      <span class="slider"></span>
+    </label>
     <span class="chevron">▼</span>
   </div>
   <div class="card-body hidden">
@@ -335,6 +344,10 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
     <span class="ico" style="background:rgba(52,211,153,.18)">🧩</span>
     <h2 data-tip="Middleware and tooling costs layered on top of base model APIs. Toggle each feature and adjust the monthly cost to match your actual vendor pricing.">Platform Features</h2>
     <span class="card-cost zero" id="sec-platform">—</span>
+    <label class="toggle" onclick="event.stopPropagation()" data-tip="Include Platform Feature costs in total">
+      <input type="checkbox" id="include_platform" checked onchange="calculate()">
+      <span class="slider"></span>
+    </label>
     <span class="chevron">▼</span>
   </div>
   <div class="card-body hidden">
@@ -458,6 +471,10 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
     <span class="ico" style="background:rgba(248,113,113,.18)">🔒</span>
     <h2 data-tip="Compliance tooling, security audits, and insurance. Costs shown are monthly estimates for tooling only, not the audit itself.">Security & Compliance</h2>
     <span class="card-cost zero" id="sec-security">—</span>
+    <label class="toggle" onclick="event.stopPropagation()" data-tip="Include Security & Compliance costs in total">
+      <input type="checkbox" id="include_security" checked onchange="calculate()">
+      <span class="slider"></span>
+    </label>
     <span class="chevron">▼</span>
   </div>
   <div class="card-body hidden">
@@ -490,6 +507,10 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
     <span class="ico" style="background:rgba(96,165,250,.18)">⚙️</span>
     <h2 data-tip="Cloud compute, memory, storage, and data transfer costs for running your AI application and supporting services.">Infrastructure</h2>
     <span class="card-cost zero" id="sec-infra">—</span>
+    <label class="toggle" onclick="event.stopPropagation()" data-tip="Include Infrastructure costs in total">
+      <input type="checkbox" id="include_infra" checked onchange="calculate()">
+      <span class="slider"></span>
+    </label>
     <span class="chevron">▼</span>
   </div>
   <div class="card-body hidden">
@@ -588,6 +609,28 @@ function fillExample(el) {
   estimateFromContext();
 }
 
+// ─── API key management ───────────────────────────────────────────
+function saveApiKey() {
+  const key = $('apiKeyInput').value.trim();
+  if (!key) { $('apiKeyStatus').textContent = 'Enter a key first.'; return; }
+  localStorage.setItem('anthropic_api_key', key);
+  $('apiKeyInput').value = '';
+  $('apiKeyStatus').innerHTML = '✓ Key saved. <span style="color:var(--ac2)">AI-powered estimation enabled.</span>';
+}
+
+function getApiKey() {
+  return localStorage.getItem('anthropic_api_key') || $('apiKeyInput').value.trim();
+}
+
+// On load: show key status
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('anthropic_api_key');
+  if (saved) {
+    $('apiKeyStatus').innerHTML = '✓ API key saved. <a href="#" onclick="localStorage.removeItem(\'anthropic_api_key\');$( \'apiKeyStatus\').textContent=\'Key removed.\';return false" style="color:var(--mu);font-size:.65rem">remove</a>';
+    $('apiKeyRow').style.display = 'none';
+  }
+});
+
 // ─── Volume parser: natural-language usage → token estimates ──────
 function parseVolumeFromText(raw, detectedUsers) {
   // Token assumptions per conversation-hour (~15 turns/hr, system prompt + history):
@@ -665,98 +708,244 @@ function parseVolumeFromText(raw, detectedUsers) {
   return null; // no explicit volume — fall back to scale factor
 }
 
-// ─── Context inference engine ─────────────────────────────────────
-function estimateFromContext() {
-  const raw = ($('ctxInput').value || '').toLowerCase();
-  if (!raw.trim()) return;
+// ─── Context inference engine (LLM-powered) ───────────────────────
+async function estimateFromContext() {
+  const desc = ($('ctxInput').value || '').trim();
+  if (!desc) return;
+
+  const apiKey = getApiKey();
+  if (apiKey) {
+    await estimateWithLLM(desc, apiKey);
+  } else {
+    estimateWithRegex(desc.toLowerCase());
+  }
+}
+
+async function estimateWithLLM(desc, apiKey) {
+  const btn = document.querySelector('.est-btn');
+  btn.textContent = '⏳ Analyzing…';
+  btn.disabled = true;
+  $('inferWrap').style.display = 'block';
+  $('inferTags').innerHTML = '';
+  $('inferNote').innerHTML = '<em style="color:var(--mu)">Calling AI to analyze your project…</em>';
+
+  const systemPrompt = `You are a cost estimation engine for enterprise AI projects. Analyze the project description and return a JSON object with all parameters needed to estimate monthly costs. Return ONLY valid JSON, no explanation, no markdown fences.
+
+JSON schema (use null for unknown fields — do not omit fields):
+{
+  "users": <monthly active users, number>,
+  "deploymentTier": <"api" | "managed" | "self">,
+  "models": <array from: "haiku","sonnet","opus","gpt4o_mini","gpt4o","o3mini","o1","o3","gem15flash","gem20flash","gem15pro","gem25pro">,
+  "inputTokensM": <total monthly INPUT tokens in MILLIONS, number>,
+  "outputTokensM": <total monthly OUTPUT tokens in MILLIONS, number>,
+  "features": {
+    "vectordb": <boolean>,
+    "rag": <boolean>,
+    "llmops": <boolean>,
+    "guardrails": <boolean>,
+    "agents": <boolean>,
+    "sso": <boolean>
+  },
+  "compliance": <array of applicable cost strings: "500"=SOC2, "800"=HIPAA, "1200"=GDPR, "2000"=FedRAMP, "600"=ISO27001>,
+  "team": {
+    "engineers": <number>,
+    "salary": <annual USD, number>,
+    "timePct": <0-100, number>,
+    "supportTier": <0|500|3000|10000>
+  },
+  "infra": {
+    "vcpus": <number>,
+    "ramGB": <number>,
+    "storageTB": <number>,
+    "egressTB": <number>
+  },
+  "reasoning": "<show your token math step by step in 2-3 sentences>"
+}
+
+Token calculation rules:
+- Conversational/chat: 25,000 input + 4,000 output tokens per conversation-hour (~15 turns/hr)
+- Document processing: 2,000 input + 300 output tokens per document
+- API/discrete requests: 800 input + 200 output tokens per request
+- Code generation: 600 input + 400 output per request
+- Always multiply by 30 for daily volumes, 4.33 for weekly volumes to get monthly total
+- inputTokensM and outputTokensM must reflect the TOTAL monthly volume across all users`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: desc }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `API error ${res.status}`);
+    }
+
+    const data = await res.json();
+    const raw = data.content?.[0]?.text || '';
+    const jsonStr = raw.replace(/```json|```/g, '').trim();
+    const p = JSON.parse(jsonStr);
+
+    applyLLMParams(p);
+
+  } catch(e) {
+    $('inferNote').innerHTML = `<span style="color:var(--rd)">⚠ LLM error: ${e.message}. Falling back to pattern matching.</span>`;
+    estimateWithRegex(desc.toLowerCase());
+  } finally {
+    btn.textContent = '✨ Estimate from description';
+    btn.disabled = false;
+  }
+}
+
+function applyLLMParams(p) {
+  const tags = [], notes = [];
+
+  // Reset everything
+  ['vectordb','rag','llmops','guardrails','agents','sso'].forEach(id => $(id).checked = false);
+  state.compliance.clear();
+  document.querySelectorAll('.chip[data-val]').forEach(c => c.classList.remove('on'));
+  document.querySelectorAll('.mc').forEach(c => { c.classList.remove('sel'); c.querySelector('input').checked = false; });
+  state.selected.clear();
+
+  // Users
+  if (p.users) { $('users').value = p.users; tags.push({l: p.users.toLocaleString()+' users', c:'green'}); }
+
+  // Deployment tier
+  if (p.deploymentTier) {
+    const tierBtn = document.querySelector(`.t-btn[onclick*="'${p.deploymentTier}'"]`);
+    if (tierBtn) setTier(tierBtn, p.deploymentTier);
+    tags.push({l: {api:'API/SaaS',managed:'Managed Cloud',self:'Self-Hosted'}[p.deploymentTier] || p.deploymentTier, c:'blue'});
+  }
+
+  // Models + token volumes
+  const inM = p.inputTokensM || 60;
+  const outM = p.outputTokensM || 15;
+  (p.models || ['haiku']).forEach(id => {
+    state.selected.add(id);
+    volumes[id] = { in: inM, out: outM };
+    document.querySelectorAll('.mc').forEach(card => {
+      if (card.getAttribute('onclick')?.includes(`'${id}'`)) {
+        card.classList.add('sel'); card.querySelector('input').checked = true;
+        const pg = card.closest('[id^="prov-"]');
+        if (pg) { const prov = pg.id.replace('prov-',''); const tab = document.querySelector(`.prov-tab[onclick*="${prov}"]`); if (tab) setProv(tab, prov); }
+      }
+    });
+  });
+  tags.push({l: `${inM.toLocaleString()}M input / ${outM.toLocaleString()}M output tokens`, c:'purple'});
+
+  // Features
+  if (p.features) {
+    Object.entries(p.features).forEach(([k,v]) => { if ($(k)) $(k).checked = !!v; if (v) tags.push({l: k, c:'green'}); });
+  }
+
+  // Compliance
+  (p.compliance || []).forEach(val => activateComplianceChip(String(val)));
+
+  // Team
+  if (p.team) {
+    if (p.team.engineers != null) $('ml_eng').value = p.team.engineers;
+    if (p.team.salary != null) $('ml_salary').value = p.team.salary;
+    if (p.team.timePct != null) $('ml_pct').value = p.team.timePct;
+    if (p.team.supportTier != null) { const opt = document.querySelector(`#support option[value="${p.team.supportTier}"]`); if (opt) $('support').value = p.team.supportTier; }
+  }
+
+  // Infra
+  if (p.infra) {
+    if (p.infra.vcpus != null) $('vcpus').value = p.infra.vcpus;
+    if (p.infra.ramGB != null) $('ram').value = p.infra.ramGB;
+    if (p.infra.storageTB != null) $('storage').value = p.infra.storageTB;
+    if (p.infra.egressTB != null) $('egress').value = p.infra.egressTB;
+  }
+
+  // Auto-expand model card
+  const modelCard = $('usageTableWrap')?.closest('.card');
+  if (modelCard) {
+    const hd = modelCard.querySelector('.card-hd'); const bd = modelCard.querySelector('.card-body');
+    if (hd?.classList.contains('collapsed')) { hd.classList.remove('collapsed'); bd.classList.remove('hidden'); }
+  }
+
+  renderUsageTable();
+
+  // Show results
+  $('inferWrap').style.display = 'block';
+  $('inferTags').innerHTML = tags.map(t => `<span class="itag itag-${t.c}">${t.l}</span>`).join('');
+  $('inferNote').innerHTML = p.reasoning
+    ? `📐 <strong>AI reasoning:</strong> ${p.reasoning}`
+    : 'AI estimation complete. Adjust any field to fine-tune.';
+
+  calculate();
+}
+
+function estimateWithRegex(raw) {
   const has = (...kws) => kws.some(k => raw.includes(k));
   const tags = [], notes = [];
 
-  // Reset toggles before applying
-  ['vectordb','rag','llmops','guardrails','agents','sso'].forEach(id => $( id).checked = false);
+  ['vectordb','rag','llmops','guardrails','agents','sso'].forEach(id => $(id).checked = false);
   state.compliance.clear();
   document.querySelectorAll('.chip[data-val]').forEach(c => c.classList.remove('on'));
 
-  // ── Use case ─────────────────────────────────────────────────
   let inMTok = 60, outMTok = 15;
   let suggestedModels = ['haiku'];
 
   if (has('chatbot','chat bot','customer support','support bot','helpdesk','conversational','virtual assistant','copilot','assistant')) {
-    inMTok = 80; outMTok = 22;
-    suggestedModels = ['haiku','sonnet'];
+    inMTok = 80; outMTok = 22; suggestedModels = ['haiku','sonnet'];
     tags.push({l:'Chatbot / Conversational', c:'blue'});
     notes.push('Conversational: moderate context, real-time latency — Haiku for simple turns, Sonnet for complex reasoning.');
   }
-  if (has('rag','retrieval','knowledge base','document search','semantic search','internal docs','knowledge management','document q&a','pdf','wiki')) {
-    inMTok = 220; outMTok = 28;
-    suggestedModels = ['sonnet'];
+  if (has('rag','retrieval','knowledge base','document search','semantic search','internal docs','knowledge management','pdf','wiki')) {
+    inMTok = 220; outMTok = 28; suggestedModels = ['sonnet'];
     tags.push({l:'RAG / Knowledge Base', c:'purple'});
     notes.push('RAG workloads have high input tokens (retrieved chunks + context). Vector DB and RAG pipeline enabled.');
     $('vectordb').checked = true; $('rag').checked = true;
   }
-  if (has('code','coding','developer tool','code generation','code review','code completion','github','programming','copilot')) {
-    inMTok = 60; outMTok = 35;
-    suggestedModels = ['sonnet'];
+  if (has('code','coding','developer tool','code generation','code review','code completion','github','programming')) {
+    inMTok = 60; outMTok = 35; suggestedModels = ['sonnet'];
     tags.push({l:'Code Generation', c:'green'});
-    notes.push('Code gen has higher output ratios (~50-60% of input). Sonnet for balance; Opus for complex multi-file tasks.');
+    notes.push('Code gen has higher output ratios. Sonnet for balance; Opus for complex multi-file tasks.');
   }
-  if (has('summariz','summarise','summary','document processing','report generation','long document','contract','clause','legal')) {
-    inMTok = 420; outMTok = 42;
-    suggestedModels = ['haiku'];
+  if (has('summariz','summary','document processing','report generation','contract','legal')) {
+    inMTok = 420; outMTok = 42; suggestedModels = ['haiku'];
     tags.push({l:'Document Summarization', c:'blue'});
     notes.push('Summarization: very high input, low output. Haiku is cost-optimal at scale.');
   }
-  if (has('classif','extract','label','tagging','structured output','json output','data extraction','entity','unstructured')) {
-    inMTok = 500; outMTok = 12;
-    suggestedModels = ['haiku'];
+  if (has('classif','extract','label','tagging','structured output','data extraction','entity','unstructured')) {
+    inMTok = 500; outMTok = 12; suggestedModels = ['haiku'];
     tags.push({l:'Classification / Extraction', c:'yellow'});
     notes.push('High-volume extraction: massive input, tiny output. Haiku + batch API = lowest possible cost.');
   }
-  if (has('agent','agentic','autonomous','multi-step','workflow automation','tool use','function calling','orchestrat','research agent')) {
-    inMTok = 130; outMTok = 70;
-    suggestedModels = ['sonnet'];
+  if (has('agent','agentic','autonomous','multi-step','workflow automation','tool use','orchestrat')) {
+    inMTok = 130; outMTok = 70; suggestedModels = ['sonnet'];
     tags.push({l:'Agentic / Automation', c:'purple'});
-    notes.push('Agents have high output ratios (tool calls, scratchpad reasoning). Orchestration + LLMOps enabled.');
+    notes.push('Agents have high output ratios. Orchestration + LLMOps enabled.');
     $('agents').checked = true; $('llmops').checked = true;
   }
-  if (has('complex reasoning','scientific','research synthesis','deep analysis','multi-document')) {
-    suggestedModels = ['sonnet','opus'];
-    tags.push({l:'Complex Reasoning', c:'red'});
-    notes.push('Complex reasoning: Opus for maximum accuracy, Sonnet for cost-balanced approach.');
-  }
 
-  // ── Scale ────────────────────────────────────────────────────
-  let scaleFactor = 1.0;
-  let detectedUsers = 0;
+  let scaleFactor = 1.0, detectedUsers = 0;
   const userMatch = raw.match(/(\d[\d,]*)\s*(?:k\s)?(?:users?|customers?|employees?|seats?|people|concurrent)/);
   if (userMatch) {
     let u = parseInt(userMatch[1].replace(/,/g,''));
     if (raw.includes(userMatch[1]+'k') || raw.match(new RegExp(userMatch[1]+'\\s*k'))) u *= 1000;
-    detectedUsers = u;
-    $('users').value = u;
+    detectedUsers = u; $('users').value = u;
     tags.push({l:u.toLocaleString()+' users', c:'green'});
     scaleFactor = Math.max(0.2, Math.min(u / 500, 8));
   }
-  if (has('startup','mvp','prototype','poc','proof of concept','side project','early stage','pilot')) {
-    if (!userMatch) $('users').value = 100;
-    scaleFactor = Math.min(scaleFactor, 0.3);
-    tags.push({l:'Startup / MVP', c:'yellow'});
-  } else if (has('enterprise','large scale','millions','high volume','high traffic','global','fortune')) {
-    if (!userMatch) $('users').value = 5000;
-    scaleFactor = Math.max(scaleFactor, 3.5);
-    tags.push({l:'Enterprise scale', c:'red'});
-    notes.push('Enterprise scale: volumes increased. Consider reserved/managed pricing for 20-35% savings.');
-    $('sso').checked = true;
-  } else if (has('thousand','growing','scale')) {
-    scaleFactor = Math.max(scaleFactor, 1.5);
-    tags.push({l:'Mid-market scale', c:'blue'});
-  }
+  if (has('startup','mvp','poc','pilot')) { scaleFactor = Math.min(scaleFactor, 0.3); tags.push({l:'Startup/MVP', c:'yellow'}); }
+  else if (has('enterprise','large scale','millions','high volume','global')) { scaleFactor = Math.max(scaleFactor, 3.5); tags.push({l:'Enterprise scale', c:'red'}); $('sso').checked = true; }
 
-  // ── Volume-derived token estimation (overrides scale factor) ─
   const volOverride = parseVolumeFromText(raw, detectedUsers);
   if (volOverride) {
-    inMTok = volOverride.in;
-    outMTok = volOverride.out;
+    inMTok = volOverride.in; outMTok = volOverride.out;
     tags.push({l: volOverride.tag, c:'blue'});
     notes.unshift(volOverride.note);
   } else {
@@ -764,44 +953,14 @@ function estimateFromContext() {
     outMTok = Math.max(1, Math.round(outMTok * scaleFactor));
   }
 
-  // ── Compliance ───────────────────────────────────────────────
-  if (has('hipaa','healthcare','medical','patient','clinical','hospital','health data','phi')) {
-    tags.push({l:'HIPAA', c:'red'});
-    notes.push('Healthcare: HIPAA, guardrails, and SSO enabled.');
-    activateComplianceChip('800'); $('guardrails').checked = true; $('sso').checked = true;
-  }
-  if (has('gdpr','eu ','european','europe ','data privacy','data protection','privacy regulation')) {
-    tags.push({l:'GDPR', c:'yellow'}); activateComplianceChip('1200');
-  }
-  if (has('fedramp','federal','government','dod','military','public sector',' gov ')) {
-    tags.push({l:'FedRAMP', c:'red'}); activateComplianceChip('2000');
-    notes.push('Government context: FedRAMP enabled. Consider GovCloud or self-hosted deployment.');
-  }
-  if (has('fintech','finance','banking','financial','trading','payment','insurance','soc2','soc 2')) {
-    tags.push({l:'SOC 2', c:'yellow'}); activateComplianceChip('500');
-  }
-  if (has('iso 27001','iso27001')) {
-    tags.push({l:'ISO 27001', c:'yellow'}); activateComplianceChip('600');
-  }
+  if (has('hipaa','healthcare','medical','patient','clinical')) { tags.push({l:'HIPAA', c:'red'}); activateComplianceChip('800'); $('guardrails').checked = true; $('sso').checked = true; }
+  if (has('gdpr','european','europe','data privacy','data protection')) { tags.push({l:'GDPR', c:'yellow'}); activateComplianceChip('1200'); }
+  if (has('fedramp','federal','government','dod','military')) { tags.push({l:'FedRAMP', c:'red'}); activateComplianceChip('2000'); }
+  if (has('fintech','finance','banking','financial','soc2','soc 2')) { tags.push({l:'SOC 2', c:'yellow'}); activateComplianceChip('500'); }
+  if (has('monitor','observ','track','analytic','dashboard','trace')) { $('llmops').checked = true; tags.push({l:'LLMOps', c:'green'}); }
+  if (has('guardrail','content moderation','pii','sensitive','redact','safe')) { $('guardrails').checked = true; tags.push({l:'Guardrails', c:'green'}); }
+  if (has('sso','saml','okta','auth0','rbac','single sign')) { $('sso').checked = true; tags.push({l:'SSO / RBAC', c:'green'}); }
 
-  // ── Feature hints ────────────────────────────────────────────
-  if (has('monitor','observ','track','analytic','dashboard','debug','trace','logging')) {
-    $('llmops').checked = true; tags.push({l:'LLMOps', c:'green'});
-  }
-  if (has('guardrail','content moderation','filter','pii','sensitive','redact','safe','safety')) {
-    $('guardrails').checked = true; tags.push({l:'Guardrails', c:'green'});
-  }
-  if (has('sso','saml','okta','auth0','active directory','ldap','rbac','role-based','single sign')) {
-    $('sso').checked = true; tags.push({l:'SSO / RBAC', c:'green'});
-  }
-
-  // ── Team hints ───────────────────────────────────────────────
-  const engMatch = raw.match(/(\d+)\s*(?:ml|ai|data)?\s*engineers?/);
-  if (engMatch) { $('ml_eng').value = parseInt(engMatch[1]); tags.push({l:engMatch[1]+' ML engineers', c:'blue'}); }
-  else if (has('solo','founder','just me','only me')) { $('ml_eng').value = 1; }
-  else if (has('small team')) { $('ml_eng').value = 2; }
-
-  // ── Apply models ─────────────────────────────────────────────
   document.querySelectorAll('.mc').forEach(c => { c.classList.remove('sel'); c.querySelector('input').checked = false; });
   state.selected.clear();
   suggestedModels.forEach(id => {
@@ -811,38 +970,21 @@ function estimateFromContext() {
       if (card.getAttribute('onclick')?.includes(`'${id}'`)) {
         card.classList.add('sel'); card.querySelector('input').checked = true;
         const pg = card.closest('[id^="prov-"]');
-        if (pg) {
-          const prov = pg.id.replace('prov-','');
-          const tab = document.querySelector(`.prov-tab[onclick*="${prov}"]`);
-          if (tab) setProv(tab, prov);
-        }
+        if (pg) { const prov = pg.id.replace('prov-',''); const tab = document.querySelector(`.prov-tab[onclick*="${prov}"]`); if (tab) setProv(tab, prov); }
       }
     });
   });
 
-  renderUsageTable();
-
-  // ── Auto-expand AI Model Usage card so token values are visible ──
   const modelCard = $('usageTableWrap')?.closest('.card');
   if (modelCard) {
-    const modelHd = modelCard.querySelector('.card-hd');
-    const modelBody = modelCard.querySelector('.card-body');
-    if (modelHd && modelHd.classList.contains('collapsed')) {
-      modelHd.classList.remove('collapsed');
-      modelBody.classList.remove('hidden');
-    }
+    const hd = modelCard.querySelector('.card-hd'); const bd = modelCard.querySelector('.card-body');
+    if (hd?.classList.contains('collapsed')) { hd.classList.remove('collapsed'); bd.classList.remove('hidden'); }
   }
 
-  // ── Show inference summary ────────────────────────────────────
+  renderUsageTable();
   $('inferWrap').style.display = 'block';
   $('inferTags').innerHTML = tags.map(t => `<span class="itag itag-${t.c}">${t.l}</span>`).join('');
-
-  // Build the note: volume math first (if derived), then use-case assumptions
-  const allNotes = notes.filter(Boolean);
-  $('inferNote').innerHTML = allNotes.length
-    ? allNotes.join('<br><br>')
-    : 'Estimates applied based on your description. Adjust any field to fine-tune.';
-
+  $('inferNote').innerHTML = notes.filter(Boolean).join('<br><br>') || 'Pattern-based estimates applied. Add an Anthropic API key above for AI-powered estimation.';
   calculate();
 }
 
@@ -970,16 +1112,22 @@ function toggleChip(chip) {
 }
 
 // ─── CALCULATE ───────────────────────────────────────────────────
+function dimSection(toggleId) {
+  const card = $(toggleId)?.closest('.card');
+  if (!card) return;
+  const body = card.querySelector('.card-body');
+  if (body) body.style.opacity = $(toggleId).checked ? '1' : '0.35';
+}
+
 function calculate() {
-  // Dim Team & Operations card body when excluded
-  const teamBody = $('include_team')?.closest('.card')?.querySelector('.card-body');
-  if (teamBody) teamBody.style.opacity = $('include_team').checked ? '1' : '0.35';
+  // Dim excluded sections
+  ['include_model','include_platform','include_team','include_security','include_infra'].forEach(dimSection);
 
   const disc = TIER_DISC[state.tier];
   const cloud = parseFloat($('cloudProvider').value);
 
   // Model costs
-  let modelCost = 0;
+  let modelCostRaw = 0;
   state.selected.forEach(id => {
     const m = CATALOG[id];
     let c = 0;
@@ -993,29 +1141,33 @@ function calculate() {
     c *= disc;
     const el = $('cost_'+id);
     if (el) el.textContent = fmt(c);
-    modelCost += c;
+    modelCostRaw += c;
   });
+  const modelCost = $('include_model').checked ? modelCostRaw : 0;
 
   // Infra
-  const infra = (num('vcpus')*35 + num('ram')*4 + num('storage')*20 + num('egress')*90 + GPU_COST[state.gpu]) * cloud;
+  const infraRaw = (num('vcpus')*35 + num('ram')*4 + num('storage')*20 + num('egress')*90 + GPU_COST[state.gpu]) * cloud;
+  const infra = $('include_infra').checked ? infraRaw : 0;
 
-  // Features (user-adjustable costs)
-  let feat = 0;
-  if ($('vectordb').checked)   feat += num('cost_vectordb');
-  if ($('rag').checked)        feat += num('cost_rag');
-  if ($('llmops').checked)     feat += num('cost_llmops');
-  if ($('guardrails').checked) feat += num('cost_guardrails');
-  if ($('agents').checked)     feat += num('cost_agents');
-  if ($('sso').checked)        feat += num('cost_sso');
+  // Features
+  let featRaw = 0;
+  if ($('vectordb').checked)   featRaw += num('cost_vectordb');
+  if ($('rag').checked)        featRaw += num('cost_rag');
+  if ($('llmops').checked)     featRaw += num('cost_llmops');
+  if ($('guardrails').checked) featRaw += num('cost_guardrails');
+  if ($('agents').checked)     featRaw += num('cost_agents');
+  if ($('sso').checked)        featRaw += num('cost_sso');
+  const feat = $('include_platform').checked ? featRaw : 0;
 
-  // People (optional — controlled by header toggle)
+  // People
   const people = $('include_team').checked
     ? (num('ml_eng') * num('ml_salary') * (num('ml_pct')/100)) / 12 + num('support')
     : 0;
 
   // Security
-  let sec = (num('pentest') + num('insurance')) / 12;
-  state.compliance.forEach(v => sec += parseFloat(v));
+  let secRaw = (num('pentest') + num('insurance')) / 12;
+  state.compliance.forEach(v => secRaw += parseFloat(v));
+  const sec = $('include_security').checked ? secRaw : 0;
 
   const total = modelCost + infra + feat + people + sec;
   const annual = total * 12;
