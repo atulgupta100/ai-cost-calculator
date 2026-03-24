@@ -413,6 +413,10 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
     <span class="ico" style="background:rgba(251,191,36,.18)">👥</span>
     <h2 data-tip="Amortized people costs for engineers who maintain the AI system. Calculated as: headcount × salary × time% ÷ 12.">Team & Operations</h2>
     <span class="card-cost zero" id="sec-team">—</span>
+    <label class="toggle" onclick="event.stopPropagation()" data-tip="Include Team & Operations costs in total calculation">
+      <input type="checkbox" id="include_team" checked onchange="calculate()">
+      <span class="slider"></span>
+    </label>
     <span class="chevron">▼</span>
   </div>
   <div class="card-body hidden">
@@ -967,6 +971,10 @@ function toggleChip(chip) {
 
 // ─── CALCULATE ───────────────────────────────────────────────────
 function calculate() {
+  // Dim Team & Operations card body when excluded
+  const teamBody = $('include_team')?.closest('.card')?.querySelector('.card-body');
+  if (teamBody) teamBody.style.opacity = $('include_team').checked ? '1' : '0.35';
+
   const disc = TIER_DISC[state.tier];
   const cloud = parseFloat($('cloudProvider').value);
 
@@ -1000,8 +1008,10 @@ function calculate() {
   if ($('agents').checked)     feat += num('cost_agents');
   if ($('sso').checked)        feat += num('cost_sso');
 
-  // People
-  const people = (num('ml_eng') * num('ml_salary') * (num('ml_pct')/100)) / 12 + num('support');
+  // People (optional — controlled by header toggle)
+  const people = $('include_team').checked
+    ? (num('ml_eng') * num('ml_salary') * (num('ml_pct')/100)) / 12 + num('support')
+    : 0;
 
   // Security
   let sec = (num('pentest') + num('insurance')) / 12;
