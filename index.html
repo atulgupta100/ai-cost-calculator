@@ -586,60 +586,79 @@ function fillExample(el) {
 
 // ─── Volume parser: natural-language usage → token estimates ──────
 function parseVolumeFromText(raw, detectedUsers) {
-  // Assumptions (conversational AI, ~15 turns/hr):
-  const TOKENS_IN_PER_HOUR  = 25000; // system prompt + history + user msgs
-  const TOKENS_OUT_PER_HOUR = 4000;  // AI responses
-  const TOKENS_IN_PER_REQ   = 500;   // avg input per discrete request/query
-  const TOKENS_OUT_PER_REQ  = 150;   // avg output per discrete request/query
+  // Token assumptions per conversation-hour (~15 turns/hr, system prompt + history):
+  const TOKENS_IN_PER_HOUR  = 25000;
+  const TOKENS_OUT_PER_HOUR = 4000;
+  // Token assumptions per discrete request/query:
+  const TOKENS_IN_PER_REQ   = 800;
+  const TOKENS_OUT_PER_REQ  = 200;
 
-  // Normalize "per day/week/month" variants to canonical words
-  const normalized = raw
-    .replace(/\bper\s+day\b|\ba\s+day\b|\/day\b/gi, 'daily')
-    .replace(/\bper\s+week\b|\ba\s+week\b|\/week\b/gi, 'weekly')
-    .replace(/\bper\s+month\b|\ba\s+month\b|\/month\b/gi, 'monthly');
+  // ── Pass 1: normalize all period expressions to uppercase tokens ──
+  const s = raw
+    .replace(/\bdaily\b|\bper\s+day\b|\ba\s+day\b|\/day\b/gi, '__DAILY__')
+    .replace(/\bweekly\b|\bper\s+week\b|\ba\s+week\b|\/week\b/gi, '__WEEKLY__')
+    .replace(/\bmonthly\b|\bper\s+month\b|\ba\s+month\b|\/month\b/gi, '__MONTHLY__');
 
-  const mult = p => (!p || p === 'daily') ? 30 : p === 'weekly' ? 4.33 : 1;
+  // ── Pass 2: detect period from anywhere in the sentence ──────────
+  const periodToken = (s.match(/__DAILY__|__WEEKLY__|__MONTHLY__/) || [])[0] || '__DAILY__';
+  const mult = periodToken === '__WEEKLY__' ? 4.33 : periodToken === '__MONTHLY__' ? 1 : 30;
+  const periodLabel = periodToken === '__WEEKLY__' ? 'week' : periodToken === '__MONTHLY__' ? 'month' : 'day';
+  const hasPeriod = /__DAILY__|__WEEKLY__|__MONTHLY__/.test(s);
 
-  // Pattern 1: "N [k] hours [of X] [daily/weekly/monthly]"
-  const hm = normalized.match(
-    /(\d[\d,]*\.?\d*)\s*(k)?\s*(?:hours?|hrs?)\b(?:[^.!?\n]*?)\s*(daily|weekly|monthly)/i
-  );
-  if (hm) {
-    let h = parseFloat(hm[1].replace(/,/g, ''));
-    if (hm[2] === 'k') h *= 1000;
-    const perUser = /per\s+user/i.test(normalized.slice(Math.max(0, hm.index - 5), hm.index + hm[0].length));
-    let totalHrs = h * mult(hm[3]);
+  const perUser = /\bper\s+user\b/.test(s);
+
+  // ── Pass 3: find hours anywhere in the string ────────────────────
+  const hoursMatch = s.match(/(\d[\d,]*\.?\d*)\s*(k)?\s*(?:hours?|hrs?)\b/i);
+  if (hoursMatch) {
+    let h = parseFloat(hoursMatch[1].replace(/,/g, ''));
+    if (hoursMatch[2] === 'k') h *= 1000;
+    let totalHrs = h * mult;
     if (perUser && detectedUsers) totalHrs *= detectedUsers;
     const inM  = Math.max(1, Math.round(totalHrs * TOKENS_IN_PER_HOUR  / 1e6));
     const outM = Math.max(1, Math.round(totalHrs * TOKENS_OUT_PER_HOUR / 1e6));
-    const perLabel = perUser ? '/user' : '';
+    const assumedNote = hasPeriod ? '' : ' <em style="color:var(--mu)">(period not specified — assumed daily)</em>';
     return {
       in: inM, out: outM,
-      tag: `⏱ ${h.toLocaleString()} hrs${perLabel}/${hm[3]}`,
-      note: `Volume: <strong>${Math.round(totalHrs).toLocaleString()} conversation-hrs/mo</strong> → <strong>${inM.toLocaleString()}M input</strong> + <strong>${outM.toLocaleString()}M output</strong> tokens/mo (≈25K input + 4K output per conversation-hour — ~15 turns/hr with system prompt + history).`
+      tag: `⏱ ${h.toLocaleString()} hrs${perUser ? '/user' : ''}/${periodLabel}`,
+      note: `📐 <strong>Token math${assumedNote}:</strong> ${Math.round(totalHrs).toLocaleString()} conversation-hrs/mo × 25K input + 4K output tokens/hr = <strong style="color:var(--ac2)">${inM.toLocaleString()}M input tokens</strong> + <strong style="color:var(--gr)">${outM.toLocaleString()}M output tokens</strong> per month.`
     };
   }
 
-  // Pattern 2: "N [k] requests/queries/conversations [daily/weekly/monthly]"
-  const rm = normalized.match(
-    /(\d[\d,]*\.?\d*)\s*(k)?\s*(?:requests?|queries|api\s+calls?|calls?|conversations?|interactions?|messages?)\b(?:[^.!?\n]*?)\s*(daily|weekly|monthly)/i
-  );
-  if (rm) {
-    let r = parseFloat(rm[1].replace(/,/g, ''));
-    if (rm[2] === 'k') r *= 1000;
-    const perUser = /per\s+user/i.test(normalized.slice(Math.max(0, rm.index - 5), rm.index + rm[0].length));
-    let totalReqs = r * mult(rm[3]);
+  // ── Pass 4: find requests / queries / conversations ───────────────
+  const reqMatch = s.match(/(\d[\d,]*\.?\d*)\s*(k)?\s*(?:requests?|queries|api\s+calls?|calls?|conversations?|interactions?|messages?|chats?)\b/i);
+  if (reqMatch) {
+    let r = parseFloat(reqMatch[1].replace(/,/g, ''));
+    if (reqMatch[2] === 'k') r *= 1000;
+    let totalReqs = r * mult;
     if (perUser && detectedUsers) totalReqs *= detectedUsers;
     const inM  = Math.max(1, Math.round(totalReqs * TOKENS_IN_PER_REQ  / 1e6));
     const outM = Math.max(1, Math.round(totalReqs * TOKENS_OUT_PER_REQ / 1e6));
+    const assumedNote = hasPeriod ? '' : ' <em style="color:var(--mu)">(period not specified — assumed daily)</em>';
     return {
       in: inM, out: outM,
-      tag: `⚡ ${r.toLocaleString()} req/${rm[3]}`,
-      note: `Volume: <strong>${Math.round(totalReqs).toLocaleString()} requests/mo</strong> → <strong>${inM.toLocaleString()}M input</strong> + <strong>${outM.toLocaleString()}M output</strong> tokens/mo (≈500 input + 150 output tokens per request).`
+      tag: `⚡ ${r.toLocaleString()} req/${periodLabel}`,
+      note: `📐 <strong>Token math${assumedNote}:</strong> ${Math.round(totalReqs).toLocaleString()} requests/mo × 800 input + 200 output tokens = <strong style="color:var(--ac2)">${inM.toLocaleString()}M input tokens</strong> + <strong style="color:var(--gr)">${outM.toLocaleString()}M output tokens</strong> per month.`
     };
   }
 
-  return null; // no volume signals — fall back to scale factor
+  // ── Pass 5: find document/file volume ────────────────────────────
+  const docMatch = s.match(/(\d[\d,]*\.?\d*)\s*(k)?\s*(?:documents?|docs?|files?|pages?|records?|reports?|contracts?|emails?|tickets?)\b/i);
+  if (docMatch) {
+    let d = parseFloat(docMatch[1].replace(/,/g, ''));
+    if (docMatch[2] === 'k') d *= 1000;
+    let totalDocs = d * mult;
+    // Documents typically have larger input context
+    const inM  = Math.max(1, Math.round(totalDocs * 2000 / 1e6));
+    const outM = Math.max(1, Math.round(totalDocs * 300  / 1e6));
+    const assumedNote = hasPeriod ? '' : ' <em style="color:var(--mu)">(period not specified — assumed daily)</em>';
+    return {
+      in: inM, out: outM,
+      tag: `📄 ${d.toLocaleString()} docs/${periodLabel}`,
+      note: `📐 <strong>Token math${assumedNote}:</strong> ${Math.round(totalDocs).toLocaleString()} documents/mo × 2K input + 300 output tokens/doc = <strong style="color:var(--ac2)">${inM.toLocaleString()}M input tokens</strong> + <strong style="color:var(--gr)">${outM.toLocaleString()}M output tokens</strong> per month.`
+    };
+  }
+
+  return null; // no explicit volume — fall back to scale factor
 }
 
 // ─── Context inference engine ─────────────────────────────────────
@@ -799,11 +818,25 @@ function estimateFromContext() {
 
   renderUsageTable();
 
+  // ── Auto-expand AI Model Usage card so token values are visible ──
+  const modelCard = $('usageTableWrap')?.closest('.card');
+  if (modelCard) {
+    const modelHd = modelCard.querySelector('.card-hd');
+    const modelBody = modelCard.querySelector('.card-body');
+    if (modelHd && modelHd.classList.contains('collapsed')) {
+      modelHd.classList.remove('collapsed');
+      modelBody.classList.remove('hidden');
+    }
+  }
+
   // ── Show inference summary ────────────────────────────────────
   $('inferWrap').style.display = 'block';
   $('inferTags').innerHTML = tags.map(t => `<span class="itag itag-${t.c}">${t.l}</span>`).join('');
-  $('inferNote').innerHTML = notes.length
-    ? '<strong style="color:var(--ac2)">Assumptions:</strong> ' + notes.join(' ')
+
+  // Build the note: volume math first (if derived), then use-case assumptions
+  const allNotes = notes.filter(Boolean);
+  $('inferNote').innerHTML = allNotes.length
+    ? allNotes.join('<br><br>')
     : 'Estimates applied based on your description. Adjust any field to fine-tune.';
 
   calculate();
