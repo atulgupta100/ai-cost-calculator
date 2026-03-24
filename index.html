@@ -186,7 +186,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
   </div>
   <div class="card-body">
     <label data-tip="Be specific about: what the AI does, who uses it, how many users, industry/compliance requirements, and expected volume.">Describe your AI project</label>
-    <textarea id="ctxInput" class="ctx-area" placeholder='e.g. "Customer support chatbot for a healthcare SaaS with 2,000 enterprise users. Needs HIPAA compliance, RAG over internal docs, and real-time responses."'></textarea>
+    <textarea id="ctxInput" class="ctx-area" placeholder='e.g. "Customer support chatbot for 500 enterprise users doing 1,000 hours of conversation daily. Needs HIPAA compliance, RAG over internal docs, and real-time responses." — include hours/day or requests/day and we&#39;ll calculate tokens automatically.'></textarea>
     <div class="ctx-examples">
       <span class="ctx-ex" onclick="fillExample(this)">Support chatbot</span>
       <span class="ctx-ex" onclick="fillExample(this)">RAG over docs</span>
@@ -584,6 +584,64 @@ function fillExample(el) {
   estimateFromContext();
 }
 
+// ─── Volume parser: natural-language usage → token estimates ──────
+function parseVolumeFromText(raw, detectedUsers) {
+  // Assumptions (conversational AI, ~15 turns/hr):
+  const TOKENS_IN_PER_HOUR  = 25000; // system prompt + history + user msgs
+  const TOKENS_OUT_PER_HOUR = 4000;  // AI responses
+  const TOKENS_IN_PER_REQ   = 500;   // avg input per discrete request/query
+  const TOKENS_OUT_PER_REQ  = 150;   // avg output per discrete request/query
+
+  // Normalize "per day/week/month" variants to canonical words
+  const normalized = raw
+    .replace(/\bper\s+day\b|\ba\s+day\b|\/day\b/gi, 'daily')
+    .replace(/\bper\s+week\b|\ba\s+week\b|\/week\b/gi, 'weekly')
+    .replace(/\bper\s+month\b|\ba\s+month\b|\/month\b/gi, 'monthly');
+
+  const mult = p => (!p || p === 'daily') ? 30 : p === 'weekly' ? 4.33 : 1;
+
+  // Pattern 1: "N [k] hours [of X] [daily/weekly/monthly]"
+  const hm = normalized.match(
+    /(\d[\d,]*\.?\d*)\s*(k)?\s*(?:hours?|hrs?)\b(?:[^.!?\n]*?)\s*(daily|weekly|monthly)/i
+  );
+  if (hm) {
+    let h = parseFloat(hm[1].replace(/,/g, ''));
+    if (hm[2] === 'k') h *= 1000;
+    const perUser = /per\s+user/i.test(normalized.slice(Math.max(0, hm.index - 5), hm.index + hm[0].length));
+    let totalHrs = h * mult(hm[3]);
+    if (perUser && detectedUsers) totalHrs *= detectedUsers;
+    const inM  = Math.max(1, Math.round(totalHrs * TOKENS_IN_PER_HOUR  / 1e6));
+    const outM = Math.max(1, Math.round(totalHrs * TOKENS_OUT_PER_HOUR / 1e6));
+    const perLabel = perUser ? '/user' : '';
+    return {
+      in: inM, out: outM,
+      tag: `⏱ ${h.toLocaleString()} hrs${perLabel}/${hm[3]}`,
+      note: `Volume: <strong>${Math.round(totalHrs).toLocaleString()} conversation-hrs/mo</strong> → <strong>${inM.toLocaleString()}M input</strong> + <strong>${outM.toLocaleString()}M output</strong> tokens/mo (≈25K input + 4K output per conversation-hour — ~15 turns/hr with system prompt + history).`
+    };
+  }
+
+  // Pattern 2: "N [k] requests/queries/conversations [daily/weekly/monthly]"
+  const rm = normalized.match(
+    /(\d[\d,]*\.?\d*)\s*(k)?\s*(?:requests?|queries|api\s+calls?|calls?|conversations?|interactions?|messages?)\b(?:[^.!?\n]*?)\s*(daily|weekly|monthly)/i
+  );
+  if (rm) {
+    let r = parseFloat(rm[1].replace(/,/g, ''));
+    if (rm[2] === 'k') r *= 1000;
+    const perUser = /per\s+user/i.test(normalized.slice(Math.max(0, rm.index - 5), rm.index + rm[0].length));
+    let totalReqs = r * mult(rm[3]);
+    if (perUser && detectedUsers) totalReqs *= detectedUsers;
+    const inM  = Math.max(1, Math.round(totalReqs * TOKENS_IN_PER_REQ  / 1e6));
+    const outM = Math.max(1, Math.round(totalReqs * TOKENS_OUT_PER_REQ / 1e6));
+    return {
+      in: inM, out: outM,
+      tag: `⚡ ${r.toLocaleString()} req/${rm[3]}`,
+      note: `Volume: <strong>${Math.round(totalReqs).toLocaleString()} requests/mo</strong> → <strong>${inM.toLocaleString()}M input</strong> + <strong>${outM.toLocaleString()}M output</strong> tokens/mo (≈500 input + 150 output tokens per request).`
+    };
+  }
+
+  return null; // no volume signals — fall back to scale factor
+}
+
 // ─── Context inference engine ─────────────────────────────────────
 function estimateFromContext() {
   const raw = ($('ctxInput').value || '').toLowerCase();
@@ -646,10 +704,12 @@ function estimateFromContext() {
 
   // ── Scale ────────────────────────────────────────────────────
   let scaleFactor = 1.0;
+  let detectedUsers = 0;
   const userMatch = raw.match(/(\d[\d,]*)\s*(?:k\s)?(?:users?|customers?|employees?|seats?|people|concurrent)/);
   if (userMatch) {
     let u = parseInt(userMatch[1].replace(/,/g,''));
     if (raw.includes(userMatch[1]+'k') || raw.match(new RegExp(userMatch[1]+'\\s*k'))) u *= 1000;
+    detectedUsers = u;
     $('users').value = u;
     tags.push({l:u.toLocaleString()+' users', c:'green'});
     scaleFactor = Math.max(0.2, Math.min(u / 500, 8));
@@ -669,8 +729,17 @@ function estimateFromContext() {
     tags.push({l:'Mid-market scale', c:'blue'});
   }
 
-  inMTok = Math.max(1, Math.round(inMTok * scaleFactor));
-  outMTok = Math.max(1, Math.round(outMTok * scaleFactor));
+  // ── Volume-derived token estimation (overrides scale factor) ─
+  const volOverride = parseVolumeFromText(raw, detectedUsers);
+  if (volOverride) {
+    inMTok = volOverride.in;
+    outMTok = volOverride.out;
+    tags.push({l: volOverride.tag, c:'blue'});
+    notes.unshift(volOverride.note);
+  } else {
+    inMTok = Math.max(1, Math.round(inMTok * scaleFactor));
+    outMTok = Math.max(1, Math.round(outMTok * scaleFactor));
+  }
 
   // ── Compliance ───────────────────────────────────────────────
   if (has('hipaa','healthcare','medical','patient','clinical','hospital','health data','phi')) {
