@@ -195,11 +195,6 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
       <span class="ctx-ex" onclick="fillExample(this)">Data extraction</span>
       <span class="ctx-ex" onclick="fillExample(this)">Agentic workflow</span>
     </div>
-    <div class="api-key-row" id="apiKeyRow">
-      <input type="password" id="apiKeyInput" class="ctx-area" style="min-height:unset;padding:6px 10px;font-size:.75rem;letter-spacing:.05em" placeholder="Anthropic API key (sk-ant-...) — optional, enables AI-powered estimation">
-      <button class="est-btn" style="margin-top:5px;padding:6px 12px;font-size:.72rem;background:rgba(108,99,255,.15);color:var(--ac2);border:1px solid var(--ac2)" onclick="saveApiKey()">Save key</button>
-    </div>
-    <div id="apiKeyStatus" style="font-size:.68rem;color:var(--mu);margin-top:3px;margin-bottom:6px"></div>
     <button class="est-btn" onclick="estimateFromContext()">✨ Estimate from description</button>
     <div class="infer-wrap" id="inferWrap">
       <div class="infer-tags" id="inferTags"></div>
@@ -609,27 +604,6 @@ function fillExample(el) {
   estimateFromContext();
 }
 
-// ─── API key management ───────────────────────────────────────────
-function saveApiKey() {
-  const key = $('apiKeyInput').value.trim();
-  if (!key) { $('apiKeyStatus').textContent = 'Enter a key first.'; return; }
-  localStorage.setItem('anthropic_api_key', key);
-  $('apiKeyInput').value = '';
-  $('apiKeyStatus').innerHTML = '✓ Key saved. <span style="color:var(--ac2)">AI-powered estimation enabled.</span>';
-}
-
-function getApiKey() {
-  return localStorage.getItem('anthropic_api_key') || $('apiKeyInput').value.trim();
-}
-
-// On load: show key status
-window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('anthropic_api_key');
-  if (saved) {
-    $('apiKeyStatus').innerHTML = '✓ API key saved. <a href="#" onclick="localStorage.removeItem(\'anthropic_api_key\');$( \'apiKeyStatus\').textContent=\'Key removed.\';return false" style="color:var(--mu);font-size:.65rem">remove</a>';
-    $('apiKeyRow').style.display = 'none';
-  }
-});
 
 // ─── Volume parser: natural-language usage → token estimates ──────
 function parseVolumeFromText(raw, detectedUsers) {
@@ -708,99 +682,35 @@ function parseVolumeFromText(raw, detectedUsers) {
   return null; // no explicit volume — fall back to scale factor
 }
 
-// ─── Context inference engine (LLM-powered) ───────────────────────
+// ─── Context inference engine (proxy-powered) ────────────────────
 async function estimateFromContext() {
   const desc = ($('ctxInput').value || '').trim();
   if (!desc) return;
 
-  const apiKey = getApiKey();
-  if (apiKey) {
-    await estimateWithLLM(desc, apiKey);
-  } else {
-    estimateWithRegex(desc.toLowerCase());
-  }
-}
-
-async function estimateWithLLM(desc, apiKey) {
   const btn = document.querySelector('.est-btn');
   btn.textContent = '⏳ Analyzing…';
   btn.disabled = true;
   $('inferWrap').style.display = 'block';
   $('inferTags').innerHTML = '';
-  $('inferNote').innerHTML = '<em style="color:var(--mu)">Calling AI to analyze your project…</em>';
-
-  const systemPrompt = `You are a cost estimation engine for enterprise AI projects. Analyze the project description and return a JSON object with all parameters needed to estimate monthly costs. Return ONLY valid JSON, no explanation, no markdown fences.
-
-JSON schema (use null for unknown fields — do not omit fields):
-{
-  "users": <monthly active users, number>,
-  "deploymentTier": <"api" | "managed" | "self">,
-  "models": <array from: "haiku","sonnet","opus","gpt4o_mini","gpt4o","o3mini","o1","o3","gem15flash","gem20flash","gem15pro","gem25pro">,
-  "inputTokensM": <total monthly INPUT tokens in MILLIONS, number>,
-  "outputTokensM": <total monthly OUTPUT tokens in MILLIONS, number>,
-  "features": {
-    "vectordb": <boolean>,
-    "rag": <boolean>,
-    "llmops": <boolean>,
-    "guardrails": <boolean>,
-    "agents": <boolean>,
-    "sso": <boolean>
-  },
-  "compliance": <array of applicable cost strings: "500"=SOC2, "800"=HIPAA, "1200"=GDPR, "2000"=FedRAMP, "600"=ISO27001>,
-  "team": {
-    "engineers": <number>,
-    "salary": <annual USD, number>,
-    "timePct": <0-100, number>,
-    "supportTier": <0|500|3000|10000>
-  },
-  "infra": {
-    "vcpus": <number>,
-    "ramGB": <number>,
-    "storageTB": <number>,
-    "egressTB": <number>
-  },
-  "reasoning": "<show your token math step by step in 2-3 sentences>"
-}
-
-Token calculation rules:
-- Conversational/chat: 25,000 input + 4,000 output tokens per conversation-hour (~15 turns/hr)
-- Document processing: 2,000 input + 300 output tokens per document
-- API/discrete requests: 800 input + 200 output tokens per request
-- Code generation: 600 input + 400 output per request
-- Always multiply by 30 for daily volumes, 4.33 for weekly volumes to get monthly total
-- inputTokensM and outputTokensM must reflect the TOTAL monthly volume across all users`;
+  $('inferNote').innerHTML = '<em style="color:var(--mu)">AI is analyzing your project…</em>';
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/estimate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: desc }]
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc })
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `API error ${res.status}`);
+      throw new Error(err?.error || `Server error ${res.status}`);
     }
 
-    const data = await res.json();
-    const raw = data.content?.[0]?.text || '';
-    const jsonStr = raw.replace(/```json|```/g, '').trim();
-    const p = JSON.parse(jsonStr);
-
+    const p = await res.json();
     applyLLMParams(p);
 
-  } catch(e) {
-    $('inferNote').innerHTML = `<span style="color:var(--rd)">⚠ LLM error: ${e.message}. Falling back to pattern matching.</span>`;
+  } catch (e) {
+    $('inferNote').innerHTML = `<span style="color:var(--rd)">⚠ ${e.message}. Falling back to pattern matching.</span>`;
     estimateWithRegex(desc.toLowerCase());
   } finally {
     btn.textContent = '✨ Estimate from description';
@@ -984,7 +894,7 @@ function estimateWithRegex(raw) {
   renderUsageTable();
   $('inferWrap').style.display = 'block';
   $('inferTags').innerHTML = tags.map(t => `<span class="itag itag-${t.c}">${t.l}</span>`).join('');
-  $('inferNote').innerHTML = notes.filter(Boolean).join('<br><br>') || 'Pattern-based estimates applied. Add an Anthropic API key above for AI-powered estimation.';
+  $('inferNote').innerHTML = notes.filter(Boolean).join('<br><br>') || 'Pattern-based estimates applied.';
   calculate();
 }
 
