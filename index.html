@@ -164,6 +164,31 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
 .ctx-examples{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .ctx-ex{padding:3px 9px;border-radius:99px;font-size:.67rem;cursor:pointer;background:var(--s2);border:1px solid var(--b);color:var(--mu);transition:all .18s}
 .ctx-ex:hover{border-color:var(--ac2);color:var(--ac2)}
+
+/* ── Usage Parameters Grid ── */
+.ug-users{display:flex;align-items:center;gap:10px;margin:12px 0 10px;padding:8px 12px;background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.2);border-radius:8px;flex-wrap:wrap}
+.ug-users .ug-lbl{font-size:.73rem;font-weight:600;color:var(--mu);white-space:nowrap}
+.ug-users input{width:90px;background:var(--s2);border:1px solid var(--b);border-radius:5px;color:var(--tx);padding:5px 8px;font-size:.9rem;font-weight:700;outline:none;text-align:center;-moz-appearance:textfield;transition:border-color .18s}
+.ug-users input:focus{border-color:var(--ac)}
+.ug-users input::-webkit-inner-spin-button{-webkit-appearance:none}
+.ug-users .ug-hint{font-size:.67rem;color:var(--mu);flex:1}
+.ug-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-top:4px}
+.ug-table th{color:var(--mu);font-weight:500;padding:4px 6px;text-align:left;border-bottom:1px solid var(--b);font-size:.67rem;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.ug-table td{padding:5px 6px;border-bottom:1px solid rgba(42,45,62,.5);vertical-align:middle}
+.ug-act-name{font-size:.73rem;font-weight:500;color:var(--tx)}
+.ug-act-sub{font-size:.62rem;color:var(--mu);margin-top:1px}
+.ug-table input[type=number]{width:76px;background:var(--s2);border:1px solid var(--b);border-radius:5px;color:var(--tx);padding:4px 6px;font-size:.73rem;outline:none;-moz-appearance:textfield;transition:border-color .18s}
+.ug-table input[type=number]:focus{border-color:var(--ac)}
+.ug-table input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+.ug-table select{background:var(--s2);border:1px solid var(--b);border-radius:5px;color:var(--tx);padding:4px 6px;font-size:.7rem;outline:none;cursor:pointer;max-width:120px}
+.ug-num{font-size:.7rem;color:var(--mu);text-align:right;white-space:nowrap}
+.ug-in{font-weight:700;color:var(--ac2);text-align:right;white-space:nowrap}
+.ug-out{font-weight:700;color:var(--gr);text-align:right;white-space:nowrap}
+.ug-table tfoot tr td{border-top:2px solid var(--b);border-bottom:none;padding-top:8px;font-weight:700}
+.ug-table tfoot .ug-in{font-size:.82rem}
+.ug-table tfoot .ug-out{font-size:.82rem}
+.ug-row-off td{opacity:.38}
+.ug-flow{text-align:center;font-size:.65rem;color:var(--mu);padding:6px 0 2px;letter-spacing:.03em}
 </style>
 </head>
 <body>
@@ -188,7 +213,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
   </div>
   <div class="card-body">
     <label data-tip="Be specific about: what the AI does, who uses it, how many users, industry/compliance requirements, and expected volume.">Describe your AI project</label>
-    <textarea id="ctxInput" class="ctx-area" oninput="scheduleEstimate()" placeholder='e.g. "Customer support chatbot for 500 enterprise users doing 1,000 hours of conversation daily. Needs HIPAA compliance, RAG over internal docs, and real-time responses." — include hours/day or requests/day and we&#39;ll calculate tokens automatically.'></textarea>
+    <textarea id="ctxInput" class="ctx-area" oninput="scheduleEstimate()" placeholder='e.g. "Customer support chatbot for 500 enterprise users doing 1,000 hours of conversation daily. Needs HIPAA compliance, RAG over internal docs, and real-time responses."'></textarea>
     <div class="ctx-examples">
       <span class="ctx-ex" onclick="fillExample(this)">Support chatbot</span>
       <span class="ctx-ex" onclick="fillExample(this)">RAG over docs</span>
@@ -202,6 +227,73 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
       <div class="infer-tags" id="inferTags"></div>
       <div class="infer-note" id="inferNote"></div>
     </div>
+
+    <!-- ── Usage Parameters Grid ── -->
+    <div class="sec-hd" style="margin-top:14px" data-tip="Adjust users and activity volumes. Token consumption scales in real time and flows directly into AI Model Usage costs.">📊 Usage Parameters</div>
+    <div class="ug-users">
+      <span class="ug-lbl">👥 End Users</span>
+      <input type="number" id="users" value="500" min="1" oninput="calcUsageGrid()">
+      <span class="ug-hint">monthly active users — drives per-user cost &amp; token scaling</span>
+    </div>
+    <table class="ug-table">
+      <thead>
+        <tr>
+          <th style="width:30px"></th>
+          <th>Activity</th>
+          <th>Volume</th>
+          <th>Per</th>
+          <th style="text-align:right">Monthly</th>
+          <th style="text-align:right;color:var(--ac2)">Input MTok</th>
+          <th style="text-align:right;color:var(--gr)">Output MTok</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr id="ugr_chat">
+          <td><label class="toggle"><input type="checkbox" id="ug_chat_on" checked onchange="calcUsageGrid()"><span class="slider"></span></label></td>
+          <td><div class="ug-act-name">💬 Chat / Conversations</div><div class="ug-act-sub">25,000 in · 4,000 out tokens / session</div></td>
+          <td><input type="number" id="ug_chat_vol" value="10" min="0" step="1" oninput="calcUsageGrid()"></td>
+          <td><select id="ug_chat_per" onchange="calcUsageGrid()"><option value="user_day">/ user / day</option><option value="day">/ day total</option><option value="month">/ month</option></select></td>
+          <td class="ug-num" id="ug_chat_total">—</td>
+          <td class="ug-in" id="ug_chat_in">—</td>
+          <td class="ug-out" id="ug_chat_out">—</td>
+        </tr>
+        <tr id="ugr_docs">
+          <td><label class="toggle"><input type="checkbox" id="ug_docs_on" onchange="calcUsageGrid()"><span class="slider"></span></label></td>
+          <td><div class="ug-act-name">📄 Documents / Files</div><div class="ug-act-sub">2,000 in · 300 out tokens / doc</div></td>
+          <td><input type="number" id="ug_docs_vol" value="1000" min="0" step="100" oninput="calcUsageGrid()"></td>
+          <td><select id="ug_docs_per" onchange="calcUsageGrid()"><option value="month">/ month</option><option value="day">/ day</option><option value="user_day">/ user / day</option></select></td>
+          <td class="ug-num" id="ug_docs_total">—</td>
+          <td class="ug-in" id="ug_docs_in">—</td>
+          <td class="ug-out" id="ug_docs_out">—</td>
+        </tr>
+        <tr id="ugr_api">
+          <td><label class="toggle"><input type="checkbox" id="ug_api_on" onchange="calcUsageGrid()"><span class="slider"></span></label></td>
+          <td><div class="ug-act-name">🔌 API Requests</div><div class="ug-act-sub">800 in · 200 out tokens / request</div></td>
+          <td><input type="number" id="ug_api_vol" value="5000" min="0" step="500" oninput="calcUsageGrid()"></td>
+          <td><select id="ug_api_per" onchange="calcUsageGrid()"><option value="day">/ day</option><option value="month">/ month</option><option value="user_day">/ user / day</option></select></td>
+          <td class="ug-num" id="ug_api_total">—</td>
+          <td class="ug-in" id="ug_api_in">—</td>
+          <td class="ug-out" id="ug_api_out">—</td>
+        </tr>
+        <tr id="ugr_code">
+          <td><label class="toggle"><input type="checkbox" id="ug_code_on" onchange="calcUsageGrid()"><span class="slider"></span></label></td>
+          <td><div class="ug-act-name">💻 Code Generation</div><div class="ug-act-sub">600 in · 400 out tokens / request</div></td>
+          <td><input type="number" id="ug_code_vol" value="500" min="0" step="50" oninput="calcUsageGrid()"></td>
+          <td><select id="ug_code_per" onchange="calcUsageGrid()"><option value="user_day">/ user / day</option><option value="day">/ day</option><option value="month">/ month</option></select></td>
+          <td class="ug-num" id="ug_code_total">—</td>
+          <td class="ug-in" id="ug_code_in">—</td>
+          <td class="ug-out" id="ug_code_out">—</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4" style="font-size:.68rem;color:var(--mu)">↓ Token totals below flow into AI Model Usage</td>
+          <td></td>
+          <td class="ug-in" id="ug_total_in">—</td>
+          <td class="ug-out" id="ug_total_out">—</td>
+        </tr>
+      </tfoot>
+    </table>
   </div>
 </div>
 
@@ -479,15 +571,9 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         <input type="number" id="ml_pct" value="60" min="0" max="100" oninput="calculate()">
       </div>
     </div>
-    <div class="fr">
-      <div class="field">
-        <label data-tip="Monthly vendor support cost. Enter 0 for community/free tier.">Vendor Support ($/mo)</label>
-        <input type="number" id="support" value="3000" min="0" step="500" oninput="calculate()">
-      </div>
-      <div class="field">
-        <label data-tip="Total monthly active users. Drives cost-per-user unit economics in the summary panel.">End Users</label>
-        <input type="number" id="users" value="500" min="1" oninput="calculate()">
-      </div>
+    <div class="field">
+      <label data-tip="Monthly vendor support cost. Enter 0 for community/free tier.">Vendor Support ($/mo)</label>
+      <input type="number" id="support" value="3000" min="0" step="500" oninput="calculate()">
     </div>
   </div>
 </div>
@@ -764,6 +850,18 @@ function applyLLMParams(p) {
   // Users
   if (p.users) { $('users').value = p.users; tags.push({l: p.users.toLocaleString()+' users', c:'green'}); }
 
+  // Sync usage grid from LLM token totals — back-calculate chat sessions/user/day
+  if (p.inputTokensM && p.outputTokensM) {
+    const users = p.users || parseFloat($('users').value) || 1;
+    const sessPerUserDay = Math.max(1, Math.round((p.inputTokensM * 1e6 / UG_RATES.chat.in) / users / 30));
+    $('ug_chat_on').checked  = true;
+    $('ug_chat_vol').value   = sessPerUserDay;
+    $('ug_chat_per').value   = 'user_day';
+    $('ug_docs_on').checked  = false;
+    $('ug_api_on').checked   = false;
+    $('ug_code_on').checked  = false;
+  }
+
   // Deployment tier
   if (p.deploymentTier) {
     const tierBtn = document.querySelector(`.t-btn[onclick*="'${p.deploymentTier}'"]`);
@@ -818,8 +916,6 @@ function applyLLMParams(p) {
     if (hd?.classList.contains('collapsed')) { hd.classList.remove('collapsed'); bd.classList.remove('hidden'); }
   }
 
-  renderUsageTable();
-
   // Show results
   $('inferWrap').style.display = 'block';
   $('inferTags').innerHTML = tags.map(t => `<span class="itag itag-${t.c}">${t.l}</span>`).join('');
@@ -827,7 +923,7 @@ function applyLLMParams(p) {
     ? `<span style="color:var(--gr);font-weight:600">✓ Gemini AI</span> &nbsp;📐 ${p.reasoning}`
     : '<span style="color:var(--gr);font-weight:600">✓ Gemini AI</span> &nbsp;Estimation complete. Adjust any field to fine-tune.';
 
-  calculate();
+  calcUsageGrid(); // recalculates tokens from grid and calls calculate()
 }
 
 function estimateWithRegex(raw) {
@@ -924,11 +1020,10 @@ function estimateWithRegex(raw) {
     if (hd?.classList.contains('collapsed')) { hd.classList.remove('collapsed'); bd.classList.remove('hidden'); }
   }
 
-  renderUsageTable();
   $('inferWrap').style.display = 'block';
   $('inferTags').innerHTML = tags.map(t => `<span class="itag itag-${t.c}">${t.l}</span>`).join('');
   $('inferNote').innerHTML = '<span style="color:var(--yl);font-weight:600">⚠ Pattern matching</span> &nbsp;' + (notes.filter(Boolean).join('<br><br>') || 'Pattern-based estimates applied.');
-  calculate();
+  calcUsageGrid();
 }
 
 function activateComplianceChip(val) {
@@ -1307,6 +1402,54 @@ function exportCSV() {
   a.href = URL.createObjectURL(blob); a.download = 'ai-cost-estimate.csv'; a.click();
 }
 
+// ─── Usage Parameters Grid ───────────────────────────────────────
+const UG_RATES = {
+  chat: { in: 25000, out: 4000 },
+  docs: { in: 2000,  out: 300  },
+  api:  { in: 800,   out: 200  },
+  code: { in: 600,   out: 400  },
+};
+
+function calcUsageGrid() {
+  const users = parseFloat($('users')?.value) || 1;
+  let totalIn = 0, totalOut = 0, anyActive = false;
+  const fmtM = v => v === 0 ? '0' : v >= 1 ? v.toFixed(1)+'M' : (v * 1000).toFixed(1)+'K';
+
+  ['chat','docs','api','code'].forEach(type => {
+    const on  = $('ug_'+type+'_on')?.checked;
+    const vol = parseFloat($('ug_'+type+'_vol')?.value) || 0;
+    const per = $('ug_'+type+'_per')?.value || 'day';
+    const row = $('ugr_'+type);
+    if (row) row.classList.toggle('ug-row-off', !on);
+
+    const monthly = per === 'user_day' ? vol * users * 30
+                  : per === 'day'      ? vol * 30
+                  :                      vol;
+
+    const inM  = monthly * UG_RATES[type].in  / 1e6;
+    const outM = monthly * UG_RATES[type].out / 1e6;
+
+    $('ug_'+type+'_total').textContent = on ? Math.round(monthly).toLocaleString() : '—';
+    $('ug_'+type+'_in').textContent    = on ? fmtM(inM)  : '—';
+    $('ug_'+type+'_out').textContent   = on ? fmtM(outM) : '—';
+
+    if (on) { totalIn += inM; totalOut += outM; anyActive = true; }
+  });
+
+  $('ug_total_in').textContent  = anyActive ? fmtM(totalIn)  : '—';
+  $('ug_total_out').textContent = anyActive ? fmtM(totalOut) : '—';
+
+  // Push totals into every selected model
+  if (anyActive) {
+    const inR = Math.max(1, Math.round(totalIn));
+    const outR = Math.max(1, Math.round(totalOut));
+    state.selected.forEach(id => { volumes[id] = { in: inR, out: outR }; });
+    renderUsageTable();
+  }
+
+  calculate();
+}
+
 // ─── Auto-estimate debounce ───────────────────────────────────────
 let _estTimer = null;
 function scheduleEstimate() {
@@ -1322,7 +1465,7 @@ function scheduleEstimate() {
 // ─── Init ─────────────────────────────────────────────────────────
 $('tierNote').innerHTML = TIER_NOTES['api'];
 renderUsageTable();
-calculate();
+calcUsageGrid();
 </script>
 </body>
 </html>
