@@ -169,11 +169,19 @@ let currentProv = 'all';
 let sortCol = -1, sortDir = 1;
 
 function render() {
-  const data = MODELS.filter(m => currentProv === 'all' || m.provider === currentProv);
+  let data = MODELS.filter(m => currentProv === 'all' || m.provider === currentProv);
 
-  // Group by provider if showing all
+  // Always sort when a column is active
+  if (sortCol >= 0) {
+    data = [...data].sort((a, b) => {
+      const va = sortVal(a, sortCol), vb = sortVal(b, sortCol);
+      return sortDir * (typeof va === 'string' ? va.localeCompare(vb) : (va - vb));
+    });
+  }
+
   let rows = '';
-  if (currentProv === 'all') {
+  // Group by provider only when showing all and no sort is active
+  if (currentProv === 'all' && sortCol < 0) {
     const provOrder = ['anthropic','openai','google','meta','deepseek'];
     const provNames = { anthropic:'Anthropic', openai:'OpenAI', google:'Google', meta:'Meta (via third-party API)', deepseek:'DeepSeek' };
     provOrder.forEach(p => {
@@ -183,12 +191,6 @@ function render() {
       rows += group.map(rowHtml).join('');
     });
   } else {
-    if (sortCol >= 0) {
-      data.sort((a, b) => {
-        const va = sortVal(a, sortCol), vb = sortVal(b, sortCol);
-        return sortDir * (typeof va === 'string' ? va.localeCompare(vb) : (va - vb));
-      });
-    }
     rows = data.map(rowHtml).join('');
   }
 
