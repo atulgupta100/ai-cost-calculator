@@ -619,8 +619,16 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
       </div>
     </div>
     <div class="field">
-      <label data-tip="Monthly vendor support cost. Enter 0 for community/free tier.">Vendor Support ($/mo)</label>
-      <input type="number" id="support" value="3000" min="0" step="500" oninput="calculate()">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <input type="text" id="support_label" value="Misc" maxlength="32"
+          style="background:none;border:none;border-bottom:1px dashed var(--b);color:var(--tx);font-size:.73rem;font-weight:500;width:110px;padding:1px 3px;outline:none;cursor:text"
+          title="Click to rename this field"
+          onfocus="this.style.borderBottomColor='var(--ac)'"
+          onblur="this.style.borderBottomColor='var(--b)'; updateSupportLabel()"
+          onchange="updateSupportLabel()">
+        <span style="font-size:.68rem;color:var(--mu)">$/mo <span style="opacity:.5" title="Click the label to rename">✏️</span></span>
+      </div>
+      <input type="number" id="support" value="" min="0" step="100" placeholder="0" oninput="calculate()">
     </div>
   </div>
 </div>
@@ -945,7 +953,7 @@ function applyLLMParams(p) {
     if (p.team.engineers != null) $('ml_eng').value = p.team.engineers;
     if (p.team.salary != null) $('ml_salary').value = p.team.salary;
     if (p.team.timePct != null) $('ml_pct').value = p.team.timePct;
-    if (p.team.supportTier != null) $('support').value = p.team.supportTier;
+    if (p.team.supportTier != null && p.team.supportTier > 0) $('support').value = p.team.supportTier;
   }
 
   // Infra
@@ -1409,7 +1417,7 @@ function exportCSV() {
   row('Avg Annual Salary', '$'+num('ml_salary').toLocaleString());
   row('Time Allocated to AI', num('ml_pct')+'%');
   row('Monthly People Cost', '$'+((num('ml_eng')*num('ml_salary')*(num('ml_pct')/100))/12).toFixed(2));
-  row('Vendor Support', '$'+num('support').toFixed(2)+'/mo');
+  row(($('support_label')?.value?.trim() || 'Misc') + ' ($/mo)', '$'+num('support').toFixed(2));
   row('End Users', num('users').toLocaleString());
   row('TEAM TOTAL','','$'+people.toFixed(2));
   blank();
@@ -1494,6 +1502,14 @@ function calcUsageGrid() {
     renderUsageTable();
   }
 
+  calculate();
+}
+
+// ─── Misc field label sync ────────────────────────────────────────
+function updateSupportLabel() {
+  const lbl = ($('support_label')?.value?.trim() || 'Misc');
+  const tip = document.querySelector('[data-tip="Monthly vendor support cost. Enter 0 for community/free tier."]');
+  if (tip) tip.setAttribute('data-tip', lbl + ' — freeform monthly cost field');
   calculate();
 }
 
