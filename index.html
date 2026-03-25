@@ -189,6 +189,14 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
 .ug-table tfoot .ug-out{font-size:.82rem}
 .ug-row-off td{opacity:.38}
 .ug-flow{text-align:center;font-size:.65rem;color:var(--mu);padding:6px 0 2px;letter-spacing:.03em}
+.ug-edit-btn{background:none;border:none;cursor:pointer;font-size:.72rem;color:var(--mu);padding:1px 4px;border-radius:4px;transition:all .15s;opacity:.5;vertical-align:middle;line-height:1}
+.ug-edit-btn:hover{opacity:1;background:rgba(108,99,255,.15);color:var(--ac2)}
+.ug-rate-edit{display:none;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap}
+.ug-rate-edit input{width:68px;background:var(--s2);border:1px solid var(--ac);border-radius:4px;color:var(--tx);padding:2px 5px;font-size:.7rem;outline:none;-moz-appearance:textfield}
+.ug-rate-edit input::-webkit-inner-spin-button{-webkit-appearance:none}
+.ug-rate-edit .ug-lbl-sm{font-size:.65rem;color:var(--mu);white-space:nowrap}
+.ug-save-btn{background:var(--ac);border:none;cursor:pointer;color:#fff;font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;transition:opacity .15s}
+.ug-save-btn:hover{opacity:.85}
 </style>
 </head>
 <body>
@@ -249,7 +257,15 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
       <tbody>
         <tr id="ugr_chat">
           <td><label class="toggle"><input type="checkbox" id="ug_chat_on" checked onchange="calcUsageGrid()"><span class="slider"></span></label></td>
-          <td><div class="ug-act-name">💬 Chat / Conversations</div><div class="ug-act-sub">25,000 in · 4,000 out tokens / session</div></td>
+          <td>
+            <div class="ug-act-name">💬 Chat / Conversations <button class="ug-edit-btn" onclick="toggleRateEdit('chat')" title="Edit token rates per session">✏️</button></div>
+            <div class="ug-act-sub" id="ug_chat_rate_display">25,000 in · 4,000 out tokens / session</div>
+            <div class="ug-rate-edit" id="ug_chat_rate_edit">
+              <input type="number" id="ug_chat_rate_in" value="25000" min="1" step="100"><span class="ug-lbl-sm">in</span>
+              <input type="number" id="ug_chat_rate_out" value="4000" min="1" step="100"><span class="ug-lbl-sm">out (tokens)</span>
+              <button class="ug-save-btn" onclick="saveRateEdit('chat','session')">✓ Done</button>
+            </div>
+          </td>
           <td><input type="number" id="ug_chat_vol" value="10" min="0" step="1" oninput="calcUsageGrid()"></td>
           <td><select id="ug_chat_per" onchange="calcUsageGrid()"><option value="user_day">/ user / day</option><option value="day">/ day total</option><option value="month">/ month</option></select></td>
           <td class="ug-num" id="ug_chat_total">—</td>
@@ -258,7 +274,15 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         </tr>
         <tr id="ugr_docs">
           <td><label class="toggle"><input type="checkbox" id="ug_docs_on" onchange="calcUsageGrid()"><span class="slider"></span></label></td>
-          <td><div class="ug-act-name">📄 Documents / Files</div><div class="ug-act-sub">2,000 in · 300 out tokens / doc</div></td>
+          <td>
+            <div class="ug-act-name">📄 Documents / Files <button class="ug-edit-btn" onclick="toggleRateEdit('docs')" title="Edit token rates per document">✏️</button></div>
+            <div class="ug-act-sub" id="ug_docs_rate_display">2,000 in · 300 out tokens / doc</div>
+            <div class="ug-rate-edit" id="ug_docs_rate_edit">
+              <input type="number" id="ug_docs_rate_in" value="2000" min="1" step="100"><span class="ug-lbl-sm">in</span>
+              <input type="number" id="ug_docs_rate_out" value="300" min="1" step="50"><span class="ug-lbl-sm">out (tokens)</span>
+              <button class="ug-save-btn" onclick="saveRateEdit('docs','doc')">✓ Done</button>
+            </div>
+          </td>
           <td><input type="number" id="ug_docs_vol" value="1000" min="0" step="100" oninput="calcUsageGrid()"></td>
           <td><select id="ug_docs_per" onchange="calcUsageGrid()"><option value="month">/ month</option><option value="day">/ day</option><option value="user_day">/ user / day</option></select></td>
           <td class="ug-num" id="ug_docs_total">—</td>
@@ -267,7 +291,15 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         </tr>
         <tr id="ugr_api">
           <td><label class="toggle"><input type="checkbox" id="ug_api_on" onchange="calcUsageGrid()"><span class="slider"></span></label></td>
-          <td><div class="ug-act-name">🔌 API Requests</div><div class="ug-act-sub">800 in · 200 out tokens / request</div></td>
+          <td>
+            <div class="ug-act-name">🔌 API Requests <button class="ug-edit-btn" onclick="toggleRateEdit('api')" title="Edit token rates per request">✏️</button></div>
+            <div class="ug-act-sub" id="ug_api_rate_display">800 in · 200 out tokens / request</div>
+            <div class="ug-rate-edit" id="ug_api_rate_edit">
+              <input type="number" id="ug_api_rate_in" value="800" min="1" step="50"><span class="ug-lbl-sm">in</span>
+              <input type="number" id="ug_api_rate_out" value="200" min="1" step="50"><span class="ug-lbl-sm">out (tokens)</span>
+              <button class="ug-save-btn" onclick="saveRateEdit('api','request')">✓ Done</button>
+            </div>
+          </td>
           <td><input type="number" id="ug_api_vol" value="5000" min="0" step="500" oninput="calcUsageGrid()"></td>
           <td><select id="ug_api_per" onchange="calcUsageGrid()"><option value="day">/ day</option><option value="month">/ month</option><option value="user_day">/ user / day</option></select></td>
           <td class="ug-num" id="ug_api_total">—</td>
@@ -276,7 +308,15 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         </tr>
         <tr id="ugr_code">
           <td><label class="toggle"><input type="checkbox" id="ug_code_on" onchange="calcUsageGrid()"><span class="slider"></span></label></td>
-          <td><div class="ug-act-name">💻 Code Generation</div><div class="ug-act-sub">600 in · 400 out tokens / request</div></td>
+          <td>
+            <div class="ug-act-name">💻 Code Generation <button class="ug-edit-btn" onclick="toggleRateEdit('code')" title="Edit token rates per request">✏️</button></div>
+            <div class="ug-act-sub" id="ug_code_rate_display">600 in · 400 out tokens / request</div>
+            <div class="ug-rate-edit" id="ug_code_rate_edit">
+              <input type="number" id="ug_code_rate_in" value="600" min="1" step="50"><span class="ug-lbl-sm">in</span>
+              <input type="number" id="ug_code_rate_out" value="400" min="1" step="50"><span class="ug-lbl-sm">out (tokens)</span>
+              <button class="ug-save-btn" onclick="saveRateEdit('code','request')">✓ Done</button>
+            </div>
+          </td>
           <td><input type="number" id="ug_code_vol" value="500" min="0" step="50" oninput="calcUsageGrid()"></td>
           <td><select id="ug_code_per" onchange="calcUsageGrid()"><option value="user_day">/ user / day</option><option value="day">/ day</option><option value="month">/ month</option></select></td>
           <td class="ug-num" id="ug_code_total">—</td>
@@ -1455,6 +1495,27 @@ function calcUsageGrid() {
   }
 
   calculate();
+}
+
+// ─── Token rate edit (per activity) ──────────────────────────────
+function toggleRateEdit(type) {
+  const edit = $('ug_'+type+'_rate_edit');
+  const isOpen = edit.style.display === 'flex';
+  // Close all others first
+  ['chat','docs','api','code'].forEach(t => {
+    $('ug_'+t+'_rate_edit').style.display = 'none';
+  });
+  if (!isOpen) edit.style.display = 'flex';
+}
+
+function saveRateEdit(type, unit) {
+  const inVal  = Math.max(1, parseFloat($('ug_'+type+'_rate_in').value)  || UG_RATES[type].in);
+  const outVal = Math.max(1, parseFloat($('ug_'+type+'_rate_out').value) || UG_RATES[type].out);
+  UG_RATES[type].in  = inVal;
+  UG_RATES[type].out = outVal;
+  $('ug_'+type+'_rate_display').textContent = `${inVal.toLocaleString()} in · ${outVal.toLocaleString()} out tokens / ${unit}`;
+  $('ug_'+type+'_rate_edit').style.display = 'none';
+  calcUsageGrid();
 }
 
 // ─── Auto-estimate debounce ───────────────────────────────────────
