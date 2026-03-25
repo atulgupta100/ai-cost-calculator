@@ -4,7 +4,7 @@ JSON schema (use null for unknown fields — do not omit fields):
 {
   "users": <monthly active users, number>,
   "deploymentTier": <"api" | "managed" | "self">,
-  "models": <array from: "haiku","sonnet","opus","gpt4o_mini","gpt4o","o3mini","o1","o3","gem15flash","gem20flash","gem15pro","gem25pro">,
+  "models": <array from: "haiku","sonnet","opus","gpt4o_mini","gpt4o","o3mini","o1","o3","gem15flash","gem20flash","gem15pro","gem25pro","llama33_70b","llama4_scout","llama4_maverick","ds_v3","ds_r1">,
   "inputTokensM": <total monthly INPUT tokens in MILLIONS, number>,
   "outputTokensM": <total monthly OUTPUT tokens in MILLIONS, number>,
   "features": {
@@ -50,29 +50,27 @@ export default async function handler(req, res) {
   const { description } = req.body || {};
   if (!description?.trim()) return res.status(400).json({ error: 'description is required' });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key not configured on server' });
 
   try {
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: description }]
-      })
-    });
+    const upstream = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ role: 'user', parts: [{ text: description }] }],
+          generationConfig: { maxOutputTokens: 1024, temperature: 0.1 }
+        })
+      }
+    );
 
     const data = await upstream.json();
     if (!upstream.ok) return res.status(upstream.status).json({ error: data?.error?.message || 'Upstream error' });
 
-    const text = data.content?.[0]?.text || '';
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const jsonStr = text.replace(/```json|```/g, '').trim();
     const params = JSON.parse(jsonStr);
 
