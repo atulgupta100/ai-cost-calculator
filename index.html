@@ -742,7 +742,8 @@ async function estimateFromContext() {
     applyLLMParams(p);
 
   } catch (e) {
-    $('inferNote').innerHTML = `<span style="color:var(--rd)">⚠ ${e.message}. Falling back to pattern matching.</span>`;
+    $('inferNote').innerHTML = `<span style="color:var(--rd)">⚠ AI estimation failed: ${e.message}. Falling back to pattern matching.</span>`;
+    console.error('estimateFromContext error:', e);
     estimateWithRegex(desc.toLowerCase());
   } finally {
     btn.textContent = '✨ Estimate from description';

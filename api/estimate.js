@@ -62,19 +62,33 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
           contents: [{ role: 'user', parts: [{ text: description }] }],
-          generationConfig: { maxOutputTokens: 1024, temperature: 0.1 }
+          generationConfig: {
+            maxOutputTokens: 1024,
+            temperature: 0.1,
+            responseMimeType: 'application/json'
+          }
         })
       }
     );
 
     const data = await upstream.json();
-    if (!upstream.ok) return res.status(upstream.status).json({ error: data?.error?.message || 'Upstream error' });
+
+    if (!upstream.ok) {
+      const msg = data?.error?.message || JSON.stringify(data);
+      return res.status(upstream.status).json({ error: `Gemini error: ${msg}` });
+    }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const jsonStr = text.replace(/```json|```/g, '').trim();
-    const params = JSON.parse(jsonStr);
+    if (!text) return res.status(500).json({ error: 'Gemini returned an empty response' });
 
+    // Strip any markdown fences just in case, then find the JSON object
+    const stripped = text.replace(/```json|```/g, '').trim();
+    const match = stripped.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(500).json({ error: 'No JSON object found in Gemini response', raw: text.slice(0, 300) });
+
+    const params = JSON.parse(match[0]);
     res.status(200).json(params);
+
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
