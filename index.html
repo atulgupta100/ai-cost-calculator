@@ -188,7 +188,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
   </div>
   <div class="card-body">
     <label data-tip="Be specific about: what the AI does, who uses it, how many users, industry/compliance requirements, and expected volume.">Describe your AI project</label>
-    <textarea id="ctxInput" class="ctx-area" placeholder='e.g. "Customer support chatbot for 500 enterprise users doing 1,000 hours of conversation daily. Needs HIPAA compliance, RAG over internal docs, and real-time responses." — include hours/day or requests/day and we&#39;ll calculate tokens automatically.'></textarea>
+    <textarea id="ctxInput" class="ctx-area" oninput="scheduleEstimate()" placeholder='e.g. "Customer support chatbot for 500 enterprise users doing 1,000 hours of conversation daily. Needs HIPAA compliance, RAG over internal docs, and real-time responses." — include hours/day or requests/day and we&#39;ll calculate tokens automatically.'></textarea>
     <div class="ctx-examples">
       <span class="ctx-ex" onclick="fillExample(this)">Support chatbot</span>
       <span class="ctx-ex" onclick="fillExample(this)">RAG over docs</span>
@@ -824,8 +824,8 @@ function applyLLMParams(p) {
   $('inferWrap').style.display = 'block';
   $('inferTags').innerHTML = tags.map(t => `<span class="itag itag-${t.c}">${t.l}</span>`).join('');
   $('inferNote').innerHTML = p.reasoning
-    ? `📐 <strong>AI reasoning:</strong> ${p.reasoning}`
-    : 'AI estimation complete. Adjust any field to fine-tune.';
+    ? `<span style="color:var(--gr);font-weight:600">✓ Gemini AI</span> &nbsp;📐 ${p.reasoning}`
+    : '<span style="color:var(--gr);font-weight:600">✓ Gemini AI</span> &nbsp;Estimation complete. Adjust any field to fine-tune.';
 
   calculate();
 }
@@ -927,7 +927,7 @@ function estimateWithRegex(raw) {
   renderUsageTable();
   $('inferWrap').style.display = 'block';
   $('inferTags').innerHTML = tags.map(t => `<span class="itag itag-${t.c}">${t.l}</span>`).join('');
-  $('inferNote').innerHTML = notes.filter(Boolean).join('<br><br>') || 'Pattern-based estimates applied.';
+  $('inferNote').innerHTML = '<span style="color:var(--yl);font-weight:600">⚠ Pattern matching</span> &nbsp;' + (notes.filter(Boolean).join('<br><br>') || 'Pattern-based estimates applied.');
   calculate();
 }
 
@@ -1305,6 +1305,18 @@ function exportCSV() {
   const blob = new Blob([rows.join('\n')], {type:'text/csv'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = 'ai-cost-estimate.csv'; a.click();
+}
+
+// ─── Auto-estimate debounce ───────────────────────────────────────
+let _estTimer = null;
+function scheduleEstimate() {
+  clearTimeout(_estTimer);
+  const desc = ($('ctxInput').value || '').trim();
+  if (!desc) return;
+  // Show pending indicator
+  $('inferWrap').style.display = 'block';
+  $('inferNote').innerHTML = '<em style="color:var(--mu)">Waiting for you to stop typing…</em>';
+  _estTimer = setTimeout(() => estimateFromContext(), 1200);
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
