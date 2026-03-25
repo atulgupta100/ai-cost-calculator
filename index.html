@@ -171,6 +171,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
 <header>
   <h1>Enterprise AI Cost Calculator</h1>
   <p>Estimate monthly costs across models, infrastructure, platform, people, and compliance</p>
+  <a href="benchmarks.html" style="display:inline-block;margin-top:8px;padding:5px 14px;border-radius:99px;font-size:.72rem;font-weight:600;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.35);color:var(--ac2);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(108,99,255,.25)'" onmouseout="this.style.background='rgba(108,99,255,.15)'">📊 Model Benchmarks</a>
 </header>
 
 <div class="layout">
@@ -229,6 +230,8 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
       <button class="prov-tab active" onclick="setProv(this,'anthropic')">Anthropic</button>
       <button class="prov-tab" onclick="setProv(this,'openai')">OpenAI</button>
       <button class="prov-tab" onclick="setProv(this,'google')">Google</button>
+      <button class="prov-tab" onclick="setProv(this,'meta')">Meta</button>
+      <button class="prov-tab" onclick="setProv(this,'deepseek')">DeepSeek</button>
       <button class="prov-tab" onclick="setProv(this,'custom')">Custom</button>
     </div>
 
@@ -304,6 +307,39 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
       </div>
     </div>
 
+    <!-- Meta models -->
+    <div id="prov-meta" class="model-grid" style="display:none">
+      <div class="mc" onclick="toggleModel(this,'llama33_70b')"><input type="checkbox">
+        <span class="mc-badge bf">Fast</span>
+        <div class="mc-name" data-tip="Llama 3.3 70B via Together.ai / Fireworks. Strong all-round open model. Great price-performance for general tasks.">Llama 3.3 70B</div>
+        <div class="mc-price">In $0.59 / Out $0.79<br><span style="color:var(--mu)">per MTok</span></div>
+      </div>
+      <div class="mc" onclick="toggleModel(this,'llama4_scout')"><input type="checkbox">
+        <span class="mc-badge bb">Balanced</span>
+        <div class="mc-name" data-tip="Llama 4 Scout — Meta's latest efficient model with 10M token context. Strong multimodal reasoning at low cost.">Llama 4 Scout</div>
+        <div class="mc-price">In $0.17 / Out $0.65<br><span style="color:var(--mu)">per MTok</span></div>
+      </div>
+      <div class="mc" onclick="toggleModel(this,'llama4_maverick')"><input type="checkbox">
+        <span class="mc-badge bp">Powerful</span>
+        <div class="mc-name" data-tip="Llama 4 Maverick — Meta's frontier open model. Mixture-of-experts architecture. Competitive with top closed models.">Llama 4 Maverick</div>
+        <div class="mc-price">In $0.27 / Out $0.85<br><span style="color:var(--mu)">per MTok</span></div>
+      </div>
+    </div>
+
+    <!-- DeepSeek models -->
+    <div id="prov-deepseek" class="model-grid" style="display:none">
+      <div class="mc" onclick="toggleModel(this,'ds_v3')"><input type="checkbox">
+        <span class="mc-badge bb">Balanced</span>
+        <div class="mc-name" data-tip="DeepSeek V3 — strong open-source model competitive with GPT-4o at a fraction of the cost. Excellent for coding and reasoning.">DeepSeek V3</div>
+        <div class="mc-price">In $0.27 / Out $1.10<br><span style="color:var(--mu)">per MTok</span></div>
+      </div>
+      <div class="mc" onclick="toggleModel(this,'ds_r1')"><input type="checkbox">
+        <span class="mc-badge br">Reasoning</span>
+        <div class="mc-name" data-tip="DeepSeek R1 — open-source chain-of-thought reasoning model. Matches o1 on math and coding benchmarks at ~10× lower cost.">DeepSeek R1</div>
+        <div class="mc-price">In $0.55 / Out $2.19<br><span style="color:var(--mu)">per MTok</span></div>
+      </div>
+    </div>
+
     <!-- Custom -->
     <div id="prov-custom" class="model-grid" style="display:none">
       <div class="mc" onclick="toggleModel(this,'custom')"><input type="checkbox">
@@ -355,7 +391,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         <span style="font-size:.67rem;color:var(--mu)">$/mo</span>
         <input type="number" class="feat-inp" id="cost_vectordb" value="300" min="0" step="50" oninput="calculate()">
       </div>
-      <label class="toggle"><input type="checkbox" id="vectordb" onchange="calculate()"><span class="slider"></span></label>
+      <label class="toggle"><input type="checkbox" id="vectordb" checked onchange="calculate()"><span class="slider"></span></label>
     </div>
     <div class="tg-row">
       <div class="tg-info">
@@ -366,7 +402,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         <span style="font-size:.67rem;color:var(--mu)">$/mo</span>
         <input type="number" class="feat-inp" id="cost_rag" value="200" min="0" step="50" oninput="calculate()">
       </div>
-      <label class="toggle"><input type="checkbox" id="rag" onchange="calculate()"><span class="slider"></span></label>
+      <label class="toggle"><input type="checkbox" id="rag" checked onchange="calculate()"><span class="slider"></span></label>
     </div>
     <div class="tg-row">
       <div class="tg-info">
@@ -377,7 +413,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         <span style="font-size:.67rem;color:var(--mu)">$/mo</span>
         <input type="number" class="feat-inp" id="cost_llmops" value="400" min="0" step="50" oninput="calculate()">
       </div>
-      <label class="toggle"><input type="checkbox" id="llmops" onchange="calculate()"><span class="slider"></span></label>
+      <label class="toggle"><input type="checkbox" id="llmops" checked onchange="calculate()"><span class="slider"></span></label>
     </div>
     <div class="tg-row">
       <div class="tg-info">
@@ -388,7 +424,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         <span style="font-size:.67rem;color:var(--mu)">$/mo</span>
         <input type="number" class="feat-inp" id="cost_guardrails" value="350" min="0" step="50" oninput="calculate()">
       </div>
-      <label class="toggle"><input type="checkbox" id="guardrails" onchange="calculate()"><span class="slider"></span></label>
+      <label class="toggle"><input type="checkbox" id="guardrails" checked onchange="calculate()"><span class="slider"></span></label>
     </div>
     <div class="tg-row">
       <div class="tg-info">
@@ -399,7 +435,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         <span style="font-size:.67rem;color:var(--mu)">$/mo</span>
         <input type="number" class="feat-inp" id="cost_agents" value="250" min="0" step="50" oninput="calculate()">
       </div>
-      <label class="toggle"><input type="checkbox" id="agents" onchange="calculate()"><span class="slider"></span></label>
+      <label class="toggle"><input type="checkbox" id="agents" checked onchange="calculate()"><span class="slider"></span></label>
     </div>
     <div class="tg-row">
       <div class="tg-info">
@@ -410,7 +446,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         <span style="font-size:.67rem;color:var(--mu)">$/mo</span>
         <input type="number" class="feat-inp" id="cost_sso" value="500" min="0" step="50" oninput="calculate()">
       </div>
-      <label class="toggle"><input type="checkbox" id="sso" onchange="calculate()"><span class="slider"></span></label>
+      <label class="toggle"><input type="checkbox" id="sso" checked onchange="calculate()"><span class="slider"></span></label>
     </div>
   </div>
 </div>
@@ -431,7 +467,7 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
     <div class="fr3">
       <div class="field">
         <label data-tip="Full-time ML or AI engineers. Include data scientists, MLOps, and prompt engineers.">ML/AI Engineers</label>
-        <input type="number" id="ml_eng" value="2" min="0" oninput="calculate()">
+        <input type="number" id="ml_eng" value="1" min="0" oninput="calculate()">
       </div>
       <div class="field">
         <label data-tip="Fully-loaded annual salary including benefits and overhead (~1.3× base). US median for AI/ML engineers is $160K–$220K.">Avg Salary ($)</label>
@@ -444,13 +480,8 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
     </div>
     <div class="fr">
       <div class="field">
-        <label data-tip="Vendor support tier. Business = email SLA. Enterprise = dedicated TAM + 24/7. Premium = white-glove.">Support Tier</label>
-        <select id="support" onchange="calculate()">
-          <option value="0">Community (free)</option>
-          <option value="500">Business ($500/mo)</option>
-          <option value="3000" selected>Enterprise ($3K/mo)</option>
-          <option value="10000">Premium ($10K/mo)</option>
-        </select>
+        <label data-tip="Monthly vendor support cost. Enter 0 for community/free tier.">Vendor Support ($/mo)</label>
+        <input type="number" id="support" value="3000" min="0" step="500" oninput="calculate()">
       </div>
       <div class="field">
         <label data-tip="Total monthly active users. Drives cost-per-user unit economics in the summary panel.">End Users</label>
@@ -767,7 +798,7 @@ function applyLLMParams(p) {
     if (p.team.engineers != null) $('ml_eng').value = p.team.engineers;
     if (p.team.salary != null) $('ml_salary').value = p.team.salary;
     if (p.team.timePct != null) $('ml_pct').value = p.team.timePct;
-    if (p.team.supportTier != null) { const opt = document.querySelector(`#support option[value="${p.team.supportTier}"]`); if (opt) $('support').value = p.team.supportTier; }
+    if (p.team.supportTier != null) $('support').value = p.team.supportTier;
   }
 
   // Infra
@@ -905,19 +936,24 @@ function activateComplianceChip(val) {
 
 // ─── Model catalog ───────────────────────────────────────────────
 const CATALOG = {
-  haiku:     { name:'Haiku 3.5',       in:0.80,  out:4.00  },
-  sonnet:    { name:'Sonnet 4',        in:3.00,  out:15.00 },
-  opus:      { name:'Opus 4',          in:15.00, out:75.00 },
-  gpt4o_mini:{ name:'GPT-4o mini',     in:0.15,  out:0.60  },
-  gpt4o:     { name:'GPT-4o',          in:2.50,  out:10.00 },
-  o3mini:    { name:'o3-mini',         in:1.10,  out:4.40  },
-  o1:        { name:'o1',              in:15.00, out:60.00 },
-  o3:        { name:'o3',              in:10.00, out:40.00 },
-  gem15flash:{ name:'Gem 1.5 Flash',   in:0.075, out:0.30  },
-  gem20flash:{ name:'Gem 2.0 Flash',   in:0.10,  out:0.40  },
-  gem15pro:  { name:'Gem 1.5 Pro',     in:1.25,  out:5.00  },
-  gem25pro:  { name:'Gem 2.5 Pro',     in:1.25,  out:10.00 },
-  custom:    { name:'Custom',          in:null,  out:null  },
+  haiku:        { name:'Haiku 3.5',        in:0.80,  out:4.00  },
+  sonnet:       { name:'Sonnet 4',         in:3.00,  out:15.00 },
+  opus:         { name:'Opus 4',           in:15.00, out:75.00 },
+  gpt4o_mini:   { name:'GPT-4o mini',      in:0.15,  out:0.60  },
+  gpt4o:        { name:'GPT-4o',           in:2.50,  out:10.00 },
+  o3mini:       { name:'o3-mini',          in:1.10,  out:4.40  },
+  o1:           { name:'o1',               in:15.00, out:60.00 },
+  o3:           { name:'o3',               in:10.00, out:40.00 },
+  gem15flash:   { name:'Gem 1.5 Flash',    in:0.075, out:0.30  },
+  gem20flash:   { name:'Gem 2.0 Flash',    in:0.10,  out:0.40  },
+  gem15pro:     { name:'Gem 1.5 Pro',      in:1.25,  out:5.00  },
+  gem25pro:     { name:'Gem 2.5 Pro',      in:1.25,  out:10.00 },
+  llama33_70b:  { name:'Llama 3.3 70B',    in:0.59,  out:0.79  },
+  llama4_scout: { name:'Llama 4 Scout',    in:0.17,  out:0.65  },
+  llama4_maverick:{ name:'Llama 4 Maverick', in:0.27, out:0.85 },
+  ds_v3:        { name:'DeepSeek V3',      in:0.27,  out:1.10  },
+  ds_r1:        { name:'DeepSeek R1',      in:0.55,  out:2.19  },
+  custom:       { name:'Custom',           in:null,  out:null  },
 };
 
 const TIER_DISC = { api:1.0, managed:0.80, self:0.65 };
@@ -933,8 +969,8 @@ let state = { tier:'api', gpu:'none', prov:'anthropic', selected:new Set(['haiku
 let volumes = {};
 Object.keys(CATALOG).forEach(id => volumes[id] = { in: defaultIn(id), out: defaultOut(id) });
 
-function defaultIn(id)  { return {haiku:100,sonnet:50,opus:10,gpt4o_mini:200,gpt4o:50,o3mini:30,o1:5,o3:10,gem15flash:300,gem20flash:200,gem15pro:50,gem25pro:20,custom:0}[id]||50; }
-function defaultOut(id) { return {haiku:20,sonnet:10,opus:2,gpt4o_mini:40,gpt4o:10,o3mini:6,o1:1,o3:2,gem15flash:60,gem20flash:40,gem15pro:10,gem25pro:4,custom:0}[id]||10; }
+function defaultIn(id)  { return {haiku:100,sonnet:50,opus:10,gpt4o_mini:200,gpt4o:50,o3mini:30,o1:5,o3:10,gem15flash:300,gem20flash:200,gem15pro:50,gem25pro:20,llama33_70b:100,llama4_scout:150,llama4_maverick:50,ds_v3:80,ds_r1:20,custom:0}[id]||50; }
+function defaultOut(id) { return {haiku:20,sonnet:10,opus:2,gpt4o_mini:40,gpt4o:10,o3mini:6,o1:1,o3:2,gem15flash:60,gem20flash:40,gem15pro:10,gem25pro:4,llama33_70b:20,llama4_scout:30,llama4_maverick:10,ds_v3:15,ds_r1:5,custom:0}[id]||10; }
 
 const $=id=>document.getElementById(id);
 const num=id=>parseFloat($(id)?.value||0)||0;
@@ -962,7 +998,7 @@ function setProv(btn, prov) {
   state.prov = prov;
   btn.closest('.prov-tabs').querySelectorAll('.prov-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  ['anthropic','openai','google','custom'].forEach(p => {
+  ['anthropic','openai','google','meta','deepseek','custom'].forEach(p => {
     $('prov-'+p).style.display = p === prov ? 'grid' : 'none';
   });
 }
@@ -1229,7 +1265,7 @@ function exportCSV() {
   row('Avg Annual Salary', '$'+num('ml_salary').toLocaleString());
   row('Time Allocated to AI', num('ml_pct')+'%');
   row('Monthly People Cost', '$'+((num('ml_eng')*num('ml_salary')*(num('ml_pct')/100))/12).toFixed(2));
-  const suppEl = $('support'); row('Support Tier', suppEl.options[suppEl.selectedIndex].text, '$'+num('support').toFixed(2)+'/mo');
+  row('Vendor Support', '$'+num('support').toFixed(2)+'/mo');
   row('End Users', num('users').toLocaleString());
   row('TEAM TOTAL','','$'+people.toFixed(2));
   blank();

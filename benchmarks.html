@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Model Benchmarks</title>
+<style>
+:root {
+  --bg:#0f1117; --s:#1a1d27; --s2:#1e2130; --b:#2a2d3e;
+  --ac:#6c63ff; --ac2:#a78bfa; --gr:#34d399; --yl:#fbbf24; --rd:#f87171; --bl:#60a5fa;
+  --tx:#e2e8f0; --mu:#6b7590; --r:10px; --gap:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;padding:16px 12px;font-size:13px}
+header{text-align:center;margin-bottom:24px}
+header h1{font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,#6c63ff,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header p{color:var(--mu);font-size:.8rem;margin-top:3px}
+.back{display:inline-block;margin-top:8px;padding:5px 14px;border-radius:99px;font-size:.72rem;font-weight:600;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.35);color:var(--ac2);text-decoration:none;transition:background .18s}
+.back:hover{background:rgba(108,99,255,.25)}
+
+/* ── Filters ── */
+.filters{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:18px}
+.fbtn{padding:5px 14px;border-radius:99px;font-size:.72rem;font-weight:600;cursor:pointer;border:1px solid var(--b);color:var(--mu);background:transparent;transition:all .18s}
+.fbtn.on{background:var(--ac);border-color:var(--ac);color:#fff}
+
+/* ── Table ── */
+.tbl-wrap{overflow-x:auto;max-width:1200px;margin:0 auto 24px}
+table{width:100%;border-collapse:collapse;font-size:.75rem;min-width:900px}
+thead tr{border-bottom:2px solid var(--b)}
+th{padding:9px 10px;text-align:left;color:var(--mu);font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--tx)}
+th.sorted-asc::after{content:' ▲';color:var(--ac2)}
+th.sorted-desc::after{content:' ▼';color:var(--ac2)}
+td{padding:8px 10px;border-bottom:1px solid rgba(42,45,62,.6);vertical-align:middle}
+tr:hover td{background:rgba(108,99,255,.04)}
+.model-cell{display:flex;flex-direction:column;gap:2px}
+.model-name{font-weight:600;color:var(--tx)}
+.model-sub{font-size:.67rem;color:var(--mu)}
+.badge{font-size:.6rem;font-weight:700;padding:1px 7px;border-radius:99px;display:inline-block}
+.bf{background:rgba(52,211,153,.2);color:var(--gr)}
+.bb{background:rgba(96,165,250,.2);color:var(--bl)}
+.bp{background:rgba(248,113,113,.2);color:var(--rd)}
+.br{background:rgba(251,191,36,.2);color:var(--yl)}
+.bc{background:rgba(167,139,250,.2);color:var(--ac2)}
+
+/* Score bar */
+.score-cell{display:flex;align-items:center;gap:7px}
+.score-val{min-width:32px;font-weight:600}
+.bar{flex:1;height:5px;background:var(--b);border-radius:3px;overflow:hidden;min-width:40px}
+.bar-fill{height:100%;border-radius:3px}
+.na{color:var(--mu)}
+
+/* Price cells */
+.price-in{color:var(--gr);font-weight:600}
+.price-out{color:var(--yl);font-weight:600}
+.ctx{color:var(--bl)}
+
+/* Best-for pill */
+.use-pill{padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:500;background:rgba(108,99,255,.1);color:var(--ac2);border:1px solid rgba(108,99,255,.2);white-space:nowrap}
+
+/* ── Provider group headers ── */
+.grp-hd td{background:var(--s2);color:var(--mu);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:5px 10px;border-bottom:1px solid var(--b)}
+
+/* ── Legend ── */
+.legend{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:16px;font-size:.7rem;color:var(--mu)}
+.legend span{display:flex;align-items:center;gap:4px}
+
+/* ── Notes ── */
+.notes{max-width:1200px;margin:0 auto;font-size:.7rem;color:var(--mu);line-height:1.6;background:var(--s);border:1px solid var(--b);border-radius:var(--r);padding:12px 16px}
+.notes strong{color:var(--ac2)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AI Model Benchmarks</h1>
+  <p>Performance, pricing, and capability comparison across major LLM providers</p>
+  <a href="index.html" class="back">← Back to Calculator</a>
+</header>
+
+<!-- Filters -->
+<div class="filters">
+  <button class="fbtn on" onclick="filterProv(this,'all')">All Providers</button>
+  <button class="fbtn" onclick="filterProv(this,'anthropic')">Anthropic</button>
+  <button class="fbtn" onclick="filterProv(this,'openai')">OpenAI</button>
+  <button class="fbtn" onclick="filterProv(this,'google')">Google</button>
+  <button class="fbtn" onclick="filterProv(this,'meta')">Meta</button>
+  <button class="fbtn" onclick="filterProv(this,'deepseek')">DeepSeek</button>
+</div>
+
+<div class="legend">
+  <span><span style="width:10px;height:10px;border-radius:50%;background:var(--gr);display:inline-block"></span> Input price ($/MTok)</span>
+  <span><span style="width:10px;height:10px;border-radius:50%;background:var(--yl);display:inline-block"></span> Output price ($/MTok)</span>
+  <span>Benchmarks shown as % score (higher = better). — = not publicly reported.</span>
+</div>
+
+<div class="tbl-wrap">
+<table id="benchTable">
+<thead>
+  <tr>
+    <th onclick="sortTable(0)">Model</th>
+    <th onclick="sortTable(1)">Tier</th>
+    <th onclick="sortTable(2)" title="Input cost per million tokens">In $/MTok</th>
+    <th onclick="sortTable(3)" title="Output cost per million tokens">Out $/MTok</th>
+    <th onclick="sortTable(4)" title="Context window">Context</th>
+    <th onclick="sortTable(5)" title="MMLU: Massive Multitask Language Understanding — general knowledge across 57 subjects">MMLU</th>
+    <th onclick="sortTable(6)" title="HumanEval: coding benchmark — pass@1 on Python programming problems">HumanEval</th>
+    <th onclick="sortTable(7)" title="MATH: competition mathematics problems">MATH</th>
+    <th onclick="sortTable(8)" title="GPQA Diamond: graduate-level science questions">GPQA</th>
+    <th onclick="sortTable(9)" title="Approximate output tokens per second (varies by load)">Speed (tok/s)</th>
+    <th>Best For</th>
+  </tr>
+</thead>
+<tbody id="benchBody"></tbody>
+</table>
+</div>
+
+<div class="notes">
+  <strong>Pricing sources:</strong> Anthropic.com, OpenAI.com, Google AI, Together.ai, DeepSeek.com — as of March 2025. Prices may change; verify before budgeting.<br>
+  <strong>Benchmark sources:</strong> Official provider technical reports and third-party evals (LMSYS, papers). Scores are not always directly comparable (different eval setups). —  = not publicly reported by provider.<br>
+  <strong>Speed:</strong> Approximate median output token/s on shared API infrastructure under normal load. Self-hosted or dedicated deployments will differ significantly.<br>
+  <strong>Meta / DeepSeek pricing:</strong> Via third-party inference providers (Together.ai, Fireworks, Replicate). Prices vary by provider.
+</div>
+
+<script>
+const MODELS = [
+  // ── Anthropic ──
+  { provider:'anthropic', name:'Claude Haiku 3.5',    sub:'Anthropic',  tier:'Fast',      tierCls:'bf', inP:0.80,  outP:4.00,   ctx:'200K', mmlu:73,  he:88,  math:69,  gpqa:41,  speed:200, bestFor:'High-volume chat, classification, extraction' },
+  { provider:'anthropic', name:'Claude Sonnet 4',     sub:'Anthropic',  tier:'Balanced',  tierCls:'bb', inP:3.00,  outP:15.00,  ctx:'200K', mmlu:90,  he:93,  math:96,  gpqa:65,  speed:100, bestFor:'Reasoning, coding, enterprise workflows' },
+  { provider:'anthropic', name:'Claude Opus 4',       sub:'Anthropic',  tier:'Powerful',  tierCls:'bp', inP:15.00, outP:75.00,  ctx:'200K', mmlu:92,  he:95,  math:97,  gpqa:74,  speed:40,  bestFor:'Complex research, multi-step agents, nuanced writing' },
+  // ── OpenAI ──
+  { provider:'openai',    name:'GPT-4o mini',         sub:'OpenAI',     tier:'Fast',      tierCls:'bf', inP:0.15,  outP:0.60,   ctx:'128K', mmlu:82,  he:87,  math:70,  gpqa:40,  speed:180, bestFor:'Bulk processing, simple Q&A, summarization' },
+  { provider:'openai',    name:'GPT-4o',              sub:'OpenAI',     tier:'Balanced',  tierCls:'bb', inP:2.50,  outP:10.00,  ctx:'128K', mmlu:88,  he:90,  math:76,  gpqa:53,  speed:110, bestFor:'Multimodal tasks, coding, instruction-following' },
+  { provider:'openai',    name:'o3-mini',             sub:'OpenAI',     tier:'Reasoning', tierCls:'br', inP:1.10,  outP:4.40,   ctx:'200K', mmlu:86,  he:93,  math:97,  gpqa:60,  speed:70,  bestFor:'STEM reasoning, math, code at lower cost than o1' },
+  { provider:'openai',    name:'o1',                  sub:'OpenAI',     tier:'Reasoning', tierCls:'br', inP:15.00, outP:60.00,  ctx:'200K', mmlu:92,  he:95,  math:97,  gpqa:74,  speed:30,  bestFor:'Scientific research, expert-level multi-step logic' },
+  { provider:'openai',    name:'o3',                  sub:'OpenAI',     tier:'Powerful',  tierCls:'bp', inP:10.00, outP:40.00,  ctx:'200K', mmlu:96,  he:97,  math:99,  gpqa:83,  speed:35,  bestFor:'Top-tier coding, frontier research, hardest reasoning tasks' },
+  // ── Google ──
+  { provider:'google',    name:'Gemini 1.5 Flash',    sub:'Google',     tier:'Fast',      tierCls:'bf', inP:0.075, outP:0.30,   ctx:'1M',   mmlu:78,  he:74,  math:67,  gpqa:39,  speed:250, bestFor:'Document processing, bulk tasks, 1M context analysis' },
+  { provider:'google',    name:'Gemini 2.0 Flash',    sub:'Google',     tier:'Fast',      tierCls:'bf', inP:0.10,  outP:0.40,   ctx:'1M',   mmlu:83,  he:82,  math:78,  gpqa:45,  speed:220, bestFor:'Multimodal at scale, long-context at low cost' },
+  { provider:'google',    name:'Gemini 1.5 Pro',      sub:'Google',     tier:'Balanced',  tierCls:'bb', inP:1.25,  outP:5.00,   ctx:'2M',   mmlu:85,  he:84,  math:86,  gpqa:46,  speed:90,  bestFor:'2M context, video understanding, cross-modal analysis' },
+  { provider:'google',    name:'Gemini 2.5 Pro',      sub:'Google',     tier:'Powerful',  tierCls:'bp', inP:1.25,  outP:10.00,  ctx:'1M',   mmlu:92,  he:92,  math:96,  gpqa:71,  speed:80,  bestFor:'State-of-art reasoning, coding, long-context analysis' },
+  // ── Meta ──
+  { provider:'meta',      name:'Llama 3.3 70B',       sub:'Meta / Together.ai', tier:'Fast', tierCls:'bf', inP:0.59, outP:0.79, ctx:'128K', mmlu:86,  he:88,  math:77,  gpqa:50,  speed:160, bestFor:'Open-weight, cost-efficient general tasks, self-hosting' },
+  { provider:'meta',      name:'Llama 4 Scout',       sub:'Meta / Fireworks',   tier:'Balanced', tierCls:'bb', inP:0.17, outP:0.65, ctx:'10M', mmlu:87,  he:88,  math:80,  gpqa:57,  speed:140, bestFor:'Massive context, multimodal, lowest cost open model' },
+  { provider:'meta',      name:'Llama 4 Maverick',    sub:'Meta / Fireworks',   tier:'Powerful', tierCls:'bp', inP:0.27, outP:0.85, ctx:'1M',  mmlu:90,  he:92,  math:85,  gpqa:62,  speed:95,  bestFor:'Frontier open model, MoE efficiency, coding + reasoning' },
+  // ── DeepSeek ──
+  { provider:'deepseek',  name:'DeepSeek V3',         sub:'DeepSeek',   tier:'Balanced',  tierCls:'bb', inP:0.27,  outP:1.10,   ctx:'128K', mmlu:88,  he:92,  math:90,  gpqa:59,  speed:120, bestFor:'GPT-4o quality at 10× lower cost, coding, analysis' },
+  { provider:'deepseek',  name:'DeepSeek R1',         sub:'DeepSeek',   tier:'Reasoning', tierCls:'br', inP:0.55,  outP:2.19,   ctx:'128K', mmlu:91,  he:92,  math:97,  gpqa:71,  speed:50,  bestFor:'Open reasoning model matching o1 at ~10× lower cost' },
+];
+
+// Max values for bar scaling
+const MAX = { mmlu:100, he:100, math:100, gpqa:100, speed:250 };
+
+function barColor(pct) {
+  if (pct >= 85) return 'var(--gr)';
+  if (pct >= 70) return 'var(--bl)';
+  if (pct >= 55) return 'var(--yl)';
+  return 'var(--rd)';
+}
+
+function scoreCell(val, max) {
+  if (val == null) return '<span class="na">—</span>';
+  const pct = Math.min(100, (val / max) * 100);
+  return `<div class="score-cell"><span class="score-val" style="color:${barColor(val)}">${val}</span><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${barColor(val)}"></div></div></div>`;
+}
+
+let currentProv = 'all';
+let sortCol = -1, sortDir = 1;
+
+function render() {
+  const data = MODELS.filter(m => currentProv === 'all' || m.provider === currentProv);
+
+  // Group by provider if showing all
+  let rows = '';
+  if (currentProv === 'all') {
+    const provOrder = ['anthropic','openai','google','meta','deepseek'];
+    const provNames = { anthropic:'Anthropic', openai:'OpenAI', google:'Google', meta:'Meta (via third-party API)', deepseek:'DeepSeek' };
+    provOrder.forEach(p => {
+      const group = data.filter(m => m.provider === p);
+      if (!group.length) return;
+      rows += `<tr class="grp-hd"><td colspan="11">${provNames[p]}</td></tr>`;
+      rows += group.map(rowHtml).join('');
+    });
+  } else {
+    if (sortCol >= 0) {
+      data.sort((a, b) => {
+        const va = sortVal(a, sortCol), vb = sortVal(b, sortCol);
+        return sortDir * (typeof va === 'string' ? va.localeCompare(vb) : (va - vb));
+      });
+    }
+    rows = data.map(rowHtml).join('');
+  }
+
+  document.getElementById('benchBody').innerHTML = rows;
+}
+
+function sortVal(m, col) {
+  return [m.name, m.tier, m.inP, m.outP, parseInt(m.ctx)||0, m.mmlu, m.he, m.math, m.gpqa, m.speed, m.bestFor][col];
+}
+
+function rowHtml(m) {
+  return `<tr data-prov="${m.provider}">
+    <td><div class="model-cell"><span class="model-name">${m.name}</span><span class="model-sub">${m.sub}</span></div></td>
+    <td><span class="badge ${m.tierCls}">${m.tier}</span></td>
+    <td><span class="price-in">$${m.inP}</span></td>
+    <td><span class="price-out">$${m.outP}</span></td>
+    <td><span class="ctx">${m.ctx}</span></td>
+    <td>${scoreCell(m.mmlu, 100)}</td>
+    <td>${scoreCell(m.he, 100)}</td>
+    <td>${scoreCell(m.math, 100)}</td>
+    <td>${scoreCell(m.gpqa, 100)}</td>
+    <td>${scoreCell(m.speed, 250)}</td>
+    <td><span class="use-pill">${m.bestFor}</span></td>
+  </tr>`;
+}
+
+function filterProv(btn, prov) {
+  currentProv = prov;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  sortCol = -1; sortDir = 1;
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sorted-asc','sorted-desc'));
+  render();
+}
+
+function sortTable(col) {
+  if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
+  document.querySelectorAll('th').forEach((th, i) => {
+    th.classList.remove('sorted-asc','sorted-desc');
+    if (i === col) th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+  });
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
