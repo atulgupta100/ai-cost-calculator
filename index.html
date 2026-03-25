@@ -754,8 +754,8 @@ async function estimateFromContext() {
 function applyLLMParams(p) {
   const tags = [], notes = [];
 
-  // Reset everything
-  ['vectordb','rag','llmops','guardrails','agents','sso'].forEach(id => $(id).checked = false);
+  // Reset everything — features default ON to match HTML defaults
+  ['vectordb','rag','llmops','guardrails','agents','sso'].forEach(id => $(id).checked = true);
   state.compliance.clear();
   document.querySelectorAll('.chip[data-val]').forEach(c => c.classList.remove('on'));
   document.querySelectorAll('.mc').forEach(c => { c.classList.remove('sel'); c.querySelector('input').checked = false; });
@@ -834,7 +834,7 @@ function estimateWithRegex(raw) {
   const has = (...kws) => kws.some(k => raw.includes(k));
   const tags = [], notes = [];
 
-  ['vectordb','rag','llmops','guardrails','agents','sso'].forEach(id => $(id).checked = false);
+  ['vectordb','rag','llmops','guardrails','agents','sso'].forEach(id => $(id).checked = true);
   state.compliance.clear();
   document.querySelectorAll('.chip[data-val]').forEach(c => c.classList.remove('on'));
 
