@@ -229,6 +229,13 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
       <span class="ctx-ex" onclick="fillExample(this)">Data extraction</span>
       <span class="ctx-ex" onclick="fillExample(this)">Agentic workflow</span>
     </div>
+    <div class="tg-row" style="margin-bottom:10px;border:1px solid var(--b);border-radius:8px;padding:8px 10px;background:rgba(251,191,36,.04)">
+      <div class="tg-info">
+        <div class="tg-lbl" data-tip="Reasoning models (o3, DeepSeek R1, Claude with extended thinking) generate hidden chain-of-thought tokens before responding. Enabling this multiplies output token estimates by 3× to reflect real billing cost.">🧠 Deep Reasoning Mode</div>
+        <div class="tg-sub">Task requires step-by-step thinking (math, code review, research) — multiplies output tokens ×3</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="reasoning_mode" onchange="calcUsageGrid()"><span class="slider"></span></label>
+    </div>
     <button class="est-btn" onclick="estimateFromContext()">✨ Estimate from description</button>
     <div class="infer-wrap" id="inferWrap">
       <div class="infer-tags" id="inferTags"></div>
@@ -333,6 +340,9 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
         </tr>
       </tfoot>
     </table>
+    <div id="ctx_warning" style="display:none;margin-top:8px;padding:7px 10px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:7px;font-size:.72rem;color:var(--yl)">
+      ⚠ <strong>Long-context surcharge:</strong> Your monthly input volume is high. If individual prompts exceed 200,000 tokens, Anthropic and Google apply a ~2× price multiplier on input tokens. Verify prompt sizes before finalising budget.
+    </div>
   </div>
 </div>
 
@@ -1481,18 +1491,23 @@ function calcUsageGrid() {
                   : per === 'day'      ? vol * 30
                   :                      vol;
 
+    const reasoningMult = $('reasoning_mode')?.checked ? 3 : 1;
     const inM  = monthly * UG_RATES[type].in  / 1e6;
-    const outM = monthly * UG_RATES[type].out / 1e6;
+    const outM = monthly * UG_RATES[type].out / 1e6 * reasoningMult;
 
     $('ug_'+type+'_total').textContent = on ? Math.round(monthly).toLocaleString() : '—';
     $('ug_'+type+'_in').textContent    = on ? fmtM(inM)  : '—';
-    $('ug_'+type+'_out').textContent   = on ? fmtM(outM) : '—';
+    $('ug_'+type+'_out').textContent   = on ? fmtM(outM) + (reasoningMult > 1 ? ' 🧠' : '') : '—';
 
     if (on) { totalIn += inM; totalOut += outM; anyActive = true; }
   });
 
   $('ug_total_in').textContent  = anyActive ? fmtM(totalIn)  : '—';
-  $('ug_total_out').textContent = anyActive ? fmtM(totalOut) : '—';
+  $('ug_total_out').textContent = anyActive ? fmtM(totalOut) + ($('reasoning_mode')?.checked ? ' 🧠×3' : '') : '—';
+
+  // Long-context warning: flag if avg input MTok/model > 0.2M tokens per call (heuristic)
+  const warn = $('ctx_warning');
+  if (warn) warn.style.display = anyActive && totalIn > 200 ? 'block' : 'none';
 
   // Push totals into every selected model
   if (anyActive) {

@@ -117,9 +117,12 @@ tr:hover td{background:rgba(108,99,255,.04)}
 </div>
 
 <div class="notes">
-  <strong>Pricing sources:</strong> Anthropic.com, OpenAI.com, Google AI, Together.ai, DeepSeek.com — as of March 2025. Prices may change; verify before budgeting.<br>
-  <strong>Benchmark sources:</strong> Official provider technical reports and third-party evals (LMSYS, papers). Scores are not always directly comparable (different eval setups). —  = not publicly reported by provider.<br>
-  <strong>Speed:</strong> Approximate median output token/s on shared API infrastructure under normal load. Self-hosted or dedicated deployments will differ significantly.<br>
+  <strong>Pricing sources:</strong> Anthropic.com, OpenAI.com, Google AI, Together.ai, DeepSeek.com — as of early 2026. Prices change frequently; verify before budgeting.<br>
+  <strong>Thinking / Reasoning tokens:</strong> Models marked <em>Reasoning</em> (o3-mini, o1, o3, DeepSeek R1) generate internal chain-of-thought tokens before producing visible output. Output prices shown <em>include</em> these thinking tokens — for complex tasks budget 2–4× the listed output rate.<br>
+  <strong>Long-context surcharge:</strong> Anthropic and Google apply a ~2× premium on input tokens for prompts exceeding 200,000 tokens. Prices shown reflect standard context windows.<br>
+  <strong>Legacy models:</strong> Gemini 1.5 Flash and 1.5 Pro are approaching end-of-life and not recommended for new production deployments.<br>
+  <strong>Benchmark sources:</strong> Official provider technical reports and third-party evals (LMSYS, papers). Scores are not always directly comparable across eval setups. — = not publicly reported by provider.<br>
+  <strong>Speed:</strong> Approximate median output token/s on shared API infrastructure under normal load. Self-hosted or dedicated deployments differ significantly.<br>
   <strong>Meta / DeepSeek pricing:</strong> Via third-party inference providers (Together.ai, Fireworks, Replicate). Prices vary by provider.
 </div>
 
@@ -132,13 +135,13 @@ const MODELS = [
   // ── OpenAI ──
   { provider:'openai',    name:'GPT-4o mini',         sub:'OpenAI',     tier:'Fast',      tierCls:'bf', inP:0.15,  outP:0.60,   ctx:'128K', mmlu:82,  he:87,  math:70,  gpqa:40,  speed:180, bestFor:'Bulk processing, simple Q&A, summarization' },
   { provider:'openai',    name:'GPT-4o',              sub:'OpenAI',     tier:'Balanced',  tierCls:'bb', inP:2.50,  outP:10.00,  ctx:'128K', mmlu:88,  he:90,  math:76,  gpqa:53,  speed:110, bestFor:'Multimodal tasks, coding, instruction-following' },
-  { provider:'openai',    name:'o3-mini',             sub:'OpenAI',     tier:'Reasoning', tierCls:'br', inP:1.10,  outP:4.40,   ctx:'200K', mmlu:86,  he:93,  math:97,  gpqa:60,  speed:70,  bestFor:'STEM reasoning, math, code at lower cost than o1' },
-  { provider:'openai',    name:'o1',                  sub:'OpenAI',     tier:'Reasoning', tierCls:'br', inP:15.00, outP:60.00,  ctx:'200K', mmlu:92,  he:95,  math:97,  gpqa:74,  speed:30,  bestFor:'Scientific research, expert-level multi-step logic' },
-  { provider:'openai',    name:'o3',                  sub:'OpenAI',     tier:'Powerful',  tierCls:'bp', inP:10.00, outP:40.00,  ctx:'200K', mmlu:96,  he:97,  math:99,  gpqa:83,  speed:35,  bestFor:'Top-tier coding, frontier research, hardest reasoning tasks' },
+  { provider:'openai',    name:'o3-mini',             sub:'OpenAI',     tier:'Reasoning', tierCls:'br', inP:1.10,  outP:4.40,   ctx:'200K', mmlu:86,  he:93,  math:97,  gpqa:60,  speed:70,  bestFor:'STEM reasoning, math, code — output price includes thinking tokens' },
+  { provider:'openai',    name:'o1',                  sub:'OpenAI',     tier:'Reasoning', tierCls:'br', inP:15.00, outP:60.00,  ctx:'200K', mmlu:92,  he:95,  math:97,  gpqa:74,  speed:30,  bestFor:'Scientific research, expert-level logic — output price includes thinking tokens' },
+  { provider:'openai',    name:'o3',                  sub:'OpenAI',     tier:'Powerful',  tierCls:'bp', inP:10.00, outP:40.00,  ctx:'200K', mmlu:96,  he:97,  math:99,  gpqa:83,  speed:35,  bestFor:'Top-tier coding, frontier research — output price includes thinking tokens' },
   // ── Google ──
-  { provider:'google',    name:'Gemini 1.5 Flash',    sub:'Google',     tier:'Fast',      tierCls:'bf', inP:0.075, outP:0.30,   ctx:'1M',   mmlu:78,  he:74,  math:67,  gpqa:39,  speed:250, bestFor:'Document processing, bulk tasks, 1M context analysis' },
+  { provider:'google',    name:'Gemini 1.5 Flash',    sub:'Google',     tier:'Legacy',    tierCls:'bc', inP:0.075, outP:0.30,   ctx:'1M',   mmlu:78,  he:74,  math:67,  gpqa:39,  speed:250, bestFor:'Legacy — consider Gemini 2.0 Flash for new projects' },
   { provider:'google',    name:'Gemini 2.0 Flash',    sub:'Google',     tier:'Fast',      tierCls:'bf', inP:0.10,  outP:0.40,   ctx:'1M',   mmlu:83,  he:82,  math:78,  gpqa:45,  speed:220, bestFor:'Multimodal at scale, long-context at low cost' },
-  { provider:'google',    name:'Gemini 1.5 Pro',      sub:'Google',     tier:'Balanced',  tierCls:'bb', inP:1.25,  outP:5.00,   ctx:'2M',   mmlu:85,  he:84,  math:86,  gpqa:46,  speed:90,  bestFor:'2M context, video understanding, cross-modal analysis' },
+  { provider:'google',    name:'Gemini 1.5 Pro',      sub:'Google',     tier:'Legacy',    tierCls:'bc', inP:1.25,  outP:5.00,   ctx:'2M',   mmlu:85,  he:84,  math:86,  gpqa:46,  speed:90,  bestFor:'Legacy — 2M context; use Gemini 2.5 Pro for new builds' },
   { provider:'google',    name:'Gemini 2.5 Pro',      sub:'Google',     tier:'Powerful',  tierCls:'bp', inP:1.25,  outP:10.00,  ctx:'1M',   mmlu:92,  he:92,  math:96,  gpqa:71,  speed:80,  bestFor:'State-of-art reasoning, coding, long-context analysis' },
   // ── Meta ──
   { provider:'meta',      name:'Llama 3.3 70B',       sub:'Meta / Together.ai', tier:'Fast', tierCls:'bf', inP:0.59, outP:0.79, ctx:'128K', mmlu:86,  he:88,  math:77,  gpqa:50,  speed:160, bestFor:'Open-weight, cost-efficient general tasks, self-hosting' },
@@ -146,7 +149,7 @@ const MODELS = [
   { provider:'meta',      name:'Llama 4 Maverick',    sub:'Meta / Fireworks',   tier:'Powerful', tierCls:'bp', inP:0.27, outP:0.85, ctx:'1M',  mmlu:90,  he:92,  math:85,  gpqa:62,  speed:95,  bestFor:'Frontier open model, MoE efficiency, coding + reasoning' },
   // ── DeepSeek ──
   { provider:'deepseek',  name:'DeepSeek V3',         sub:'DeepSeek',   tier:'Balanced',  tierCls:'bb', inP:0.27,  outP:1.10,   ctx:'128K', mmlu:88,  he:92,  math:90,  gpqa:59,  speed:120, bestFor:'GPT-4o quality at 10× lower cost, coding, analysis' },
-  { provider:'deepseek',  name:'DeepSeek R1',         sub:'DeepSeek',   tier:'Reasoning', tierCls:'br', inP:0.55,  outP:2.19,   ctx:'128K', mmlu:91,  he:92,  math:97,  gpqa:71,  speed:50,  bestFor:'Open reasoning model matching o1 at ~10× lower cost' },
+  { provider:'deepseek',  name:'DeepSeek R1',         sub:'DeepSeek',   tier:'Reasoning', tierCls:'br', inP:0.55,  outP:2.19,   ctx:'128K', mmlu:91,  he:92,  math:97,  gpqa:71,  speed:50,  bestFor:'Open reasoning model matching o1 at ~10× lower cost — output price includes thinking tokens' },
 ];
 
 // Max values for bar scaling
