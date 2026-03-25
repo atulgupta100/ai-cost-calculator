@@ -198,6 +198,10 @@ input[type=range]{width:100%;accent-color:var(--ac);cursor:pointer;margin:4px 0 
 .ug-save-btn{background:var(--ac);border:none;cursor:pointer;color:#fff;font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;transition:opacity .15s}
 .ug-save-btn:hover{opacity:.85}
 </style>
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 
@@ -801,7 +805,7 @@ function parseVolumeFromText(raw, detectedUsers) {
 
   const perUser = /\bper\s+user\b/.test(s);
 
-  // ── Pass 3: find hours anywhere in the string ────────────────────
+  // ── Pass 3: find hours anywhere in the string ──────────────���─────
   const hoursMatch = s.match(/(\d[\d,]*\.?\d*)\s*(k)?\s*(?:hours?|hrs?)\b/i);
   if (hoursMatch) {
     let h = parseFloat(hoursMatch[1].replace(/,/g, ''));
